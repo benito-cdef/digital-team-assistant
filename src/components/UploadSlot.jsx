@@ -12,7 +12,7 @@ const ACCEPT = '.xlsx,.xls,.csv,.pdf,.pptx';
 
 // Step: 'idle' | 'mapping' | 'preview_text' | 'ai_loading' | 'ai_preview' | 'saved' | 'error'
 
-export default function UploadSlot({ label, accent, storageKey, data, onSave, onRemove, isPrev }) {
+export default function UploadSlot({ label, accent, storageKey, data, onSave, onSaveBoth, onRemove, isPrev }) {
   const [step, setStep]         = useState(data ? 'saved' : 'idle');
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading]   = useState(false);
@@ -46,12 +46,15 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
         // 1. Prova parser trasposto (formato WEEKLY PLAN con settimane in colonna)
         const transposedActivities = tryParseTransposed(wb, file);
         if (transposedActivities && transposedActivities.length > 0) {
-          // Separa commerciale e brand in base alla fonte rilevata
-          const filtered = transposedActivities.filter(a =>
-            src === 'commercial' ? a.source === 'commercial' : a.source === 'brand'
-          );
-          const toSave = filtered.length > 0 ? filtered : transposedActivities;
-          onSave({ filename: file.name, activities: toSave });
+          const comActs = transposedActivities.filter(a => a.source === 'commercial' && !a.isPrevYear);
+          const braActs = transposedActivities.filter(a => a.source === 'brand');
+          // Salva nello slot corrente
+          const toSave = src === 'commercial' ? comActs : braActs;
+          onSave({ filename: file.name, activities: toSave.length ? toSave : transposedActivities });
+          // Se il file contiene entrambi, offri di salvare anche l'altro slot
+          if (comActs.length && braActs.length && onSaveBoth) {
+            onSaveBoth({ filename: file.name, commercial: comActs, brand: braActs });
+          }
           setStep('saved');
           setLoading(false);
           return;

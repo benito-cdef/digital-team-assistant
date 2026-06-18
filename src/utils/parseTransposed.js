@@ -1,75 +1,92 @@
 import * as XLSX from 'xlsx';
 import { getISOWeek, getISOYear } from './isoWeek.js';
 
-// Detect and parse transposed calendars (weeks as columns, activities as rows)
-// Handles the Golden Goose WEEKLY PLAN format
+/**
+ * Parser for Golden Goose WEEKLY PLAN format:
+ * - Weeks in columns (row 6 = week numbers)
+ * - Activities in rows
+ * - Dates are day-range labels like "29-04" (NOT DD/MM — they're start-end day ranges)
+ *
+ * Row map:
+ *  4  = Commercial push         → commercial
+ *  5  = Brand Push              → brand
+ * 16  = LAST YEAR               → commercial (prev year)
+ * 17  = WEEK TOPIC              → commercial
+ * 18  = 1 MAIN CAMPAIGN        → brand
+ * 19  = 2 COMMERCIAL           → commercial
+ * 20  = 3 OPPORTUNITY          → brand
+ * 21  = 4 CORPORATE            → commercial
+ * 22  = 5 REGIONAL TOPIC       → brand
+ * 23  = MARKETING ACTIVATIONS  → brand
+ */
+
+const ROW_DEFS = [
+  { idx: 4,  source: 'commercial', canale: 'Commercial Push',        prevYear: false },
+  { idx: 5,  source: 'brand',      canale: 'Brand Push',             prevYear: false },
+  { idx: 16, source: 'commercial', canale: 'Last Year (2025)',        prevYear: true  },
+  { idx: 17, source: 'commercial', canale: 'Week Topic',              prevYear: false },
+  { idx: 18, source: 'brand',      canale: 'Main Campaign',           prevYear: false },
+  { idx: 19, source: 'commercial', canale: 'Commercial',              prevYear: false },
+  { idx: 20, source: 'brand',      canale: 'Opportunity',             prevYear: false },
+  { idx: 21, source: 'commercial', canale: 'Corporate',               prevYear: false },
+  { idx: 22, source: 'brand',      canale: 'Regional Topic',          prevYear: false },
+  { idx: 23, source: 'brand',      canale: 'Marketing Activations',   prevYear: false },
+];
+
 export function tryParseTransposed(wb, file) {
-  // Try common sheet names first, then fall back to first sheet
-  const sheetPriority = ['WEEKLY PLAN 2026', 'WEEKLY PLAN', 'WEEKLY CALENDAR', 'PIANO SETTIMANALE', wb.SheetNames[0]];
-  const sheetName = sheetPriority.find(n => wb.SheetNames.includes(n)) || wb.SheetNames[0];
+  const sheetName = findBestSheet(wb);
+  if (!sheetName) return null;
+
   const ws = wb.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json(ws, { defval: '', header: 1 });
 
-  // Find the row that has "WEEK" or "SETTIMANA" in any column
+  // Find the row with week numbers
   const weekRowIdx = rows.findIndex(r =>
     r.some(c => /^(week|settimana)$/i.test(String(c).trim()))
   );
   if (weekRowIdx === -1) return null;
 
   const weekRow = rows[weekRowIdx];
-  // Find column index where week numbers start
-  const weekStartCol = weekRow.findIndex(c => /^(week|settimana)$/i.test(String(c).trim())) + 1;
+  const weekColIdx = weekRow.findIndex(c => /^(week|settimana)$/i.test(String(c).trim()));
+  const startCol = weekColIdx + 1;
 
-  // Find date row (WEEKDAYS / DATE / DATA)
-  const dateRowIdx = rows.findIndex((r, i) =>
-    i > weekRowIdx - 2 && i < weekRowIdx + 3 &&
-    r.some(c => /^(weekdays?|date|data|giorni?)$/i.test(String(c).trim()))
-  );
+  // Extract year from filename or sheet name
+  const yearMatch = (file?.name || sheetName || '').match(/20(\d{2})/);
+  const year = yearMatch ? parseInt('20' + yearMatch[1]) : new Date().getFullYear();
 
-  // Find activity rows by label patterns
-  const comKeywords  = /commercial|commerciale|push com|ecom push|promo/i;
-  const brandKeywords = /brand|editoriale|campagna|editorial/i;
-
-  const activityRows = [];
-  for (let i = 0; i < rows.length; i++) {
-    const label = String(rows[i][2] || rows[i][1] || rows[i][0] || '').trim();
-    if (!label) continue;
-    if (comKeywords.test(label))  activityRows.push({ rowIdx: i, source: 'commercial', label });
-    if (brandKeywords.test(label)) activityRows.push({ rowIdx: i, source: 'brand', label });
+  // Build week→column index map
+  const weekColMap = {}; // weekNum → colIndex
+  for (let col = startCol; col < weekRow.length; col++) {
+    const w = parseInt(weekRow[col]);
+    if (w >= 1 && w <= 53) weekColMap[w] = col;
   }
-
-  if (!activityRows.length) return null;
-
-  // Detect year from filename or sheet data
-  const yearMatch = (file?.name || sheetName || '').match(/20\d{2}/);
-  const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
 
   const activities = [];
   let idCounter = 0;
 
-  // Iterate columns (each column = one week)
-  for (let col = weekStartCol; col < weekRow.length; col++) {
-    const weekNum = parseInt(weekRow[col]);
-    if (!weekNum || isNaN(weekNum) || weekNum < 1 || weekNum > 53) continue;
+  for (const def of ROW_DEFS) {
+    if (def.idx >= rows.length) continue;
+    const row = rows[def.idx];
 
-    // Parse date from date row or derive from week number
-    let date = deriveDate(dateRowIdx >= 0 ? rows[dateRowIdx][col] : null, weekNum, year);
-    if (!date) continue;
-
-    for (const { rowIdx, source, label } of activityRows) {
-      const tema = String(rows[rowIdx][col] || '').trim();
+    for (const [weekStr, col] of Object.entries(weekColMap)) {
+      const weekNum = parseInt(weekStr);
+      const tema = String(row[col] || '').trim();
       if (!tema) continue;
 
+      const actYear = def.prevYear ? year - 1 : year;
+      const date = weekToMonday(actYear, weekNum);
+
       activities.push({
-        id: `${source}-${++idCounter}`,
-        source,
+        id: `${def.source}-${def.canale.replace(/\s/g,'')}-${++idCounter}`,
+        source: def.source,
         date,
         tema,
         descrizione: '',
-        canale: label,
+        canale: def.canale,
         week: getISOWeek(date),
         month: date.getMonth(),
         year: getISOYear(date),
+        isPrevYear: def.prevYear,
       });
     }
   }
@@ -77,21 +94,23 @@ export function tryParseTransposed(wb, file) {
   return activities.length > 0 ? activities : null;
 }
 
-function deriveDate(rawDate, weekNum, year) {
-  // Try parsing "DD-MM" or "DD/MM" format
-  if (rawDate) {
-    const s = String(rawDate).trim();
-    const m = s.match(/^(\d{1,2})[-\/](\d{1,2})$/);
-    if (m) {
-      const d = new Date(year, parseInt(m[2]) - 1, parseInt(m[1]));
-      if (!isNaN(d)) return d;
-    }
-  }
+function findBestSheet(wb) {
+  const priority = [
+    'WEEKLY PLAN 2026', 'WEEKLY PLAN 2025', 'WEEKLY PLAN 2024',
+    'WEEKLY PLAN', 'PIANO SETTIMANALE', 'CALENDAR',
+  ];
+  const found = priority.find(n => wb.SheetNames.includes(n));
+  if (found) return found;
+  // Fallback: first sheet with "WEEK" in name
+  return wb.SheetNames.find(n => /week|piano|calendar/i.test(n)) || null;
+}
 
-  // Fall back: compute Monday of the ISO week
+function weekToMonday(year, week) {
+  // ISO 8601: Week 1 = week containing first Thursday of the year
   const jan4 = new Date(year, 0, 4);
-  const dow = jan4.getDay() || 7;
+  const dow = jan4.getDay() || 7; // Monday=1 … Sunday=7
   const monday = new Date(jan4);
-  monday.setDate(jan4.getDate() - dow + 1 + (weekNum - 1) * 7);
+  monday.setDate(jan4.getDate() - dow + 1 + (week - 1) * 7);
+  monday.setHours(0, 0, 0, 0);
   return monday;
 }

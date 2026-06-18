@@ -3,12 +3,20 @@ import UploadSlot from '../components/UploadSlot.jsx';
 import { KEYS, saveCalendar, removeCalendar } from '../utils/storage.js';
 
 export default function UploadView({ calendars, onCalendarChange, onGo }) {
-  function handleSave(key, overwrite) {
-    return ({ filename, activities }) => {
-      const entry = { filename, uploadedAt: new Date().toISOString(), activities, rowCount: activities.length };
-      saveCalendar(key, entry);
-      onCalendarChange();
-    };
+  function save(key, filename, activities) {
+    const entry = { filename, uploadedAt: new Date().toISOString(), activities, rowCount: activities.length };
+    saveCalendar(key, entry);
+    onCalendarChange();
+  }
+
+  function handleSave(key) {
+    return ({ filename, activities }) => save(key, filename, activities);
+  }
+
+  // Called when a single file contains both commercial and brand data
+  function handleSaveBoth({ filename, commercial, brand }) {
+    save(KEYS.curCom, filename, commercial);
+    save(KEYS.curBra, filename, brand);
   }
 
   function handleRemove(key) {
@@ -32,6 +40,7 @@ export default function UploadView({ calendars, onCalendarChange, onGo }) {
             storageKey={KEYS.curCom}
             data={calendars.curCom}
             onSave={handleSave(KEYS.curCom)}
+            onSaveBoth={handleSaveBoth}
             onRemove={() => handleRemove(KEYS.curCom)}
           />
           <UploadSlot
@@ -40,6 +49,7 @@ export default function UploadView({ calendars, onCalendarChange, onGo }) {
             storageKey={KEYS.curBra}
             data={calendars.curBra}
             onSave={handleSave(KEYS.curBra)}
+            onSaveBoth={handleSaveBoth}
             onRemove={() => handleRemove(KEYS.curBra)}
           />
         </div>
