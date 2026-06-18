@@ -43,6 +43,17 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
         if (!r.length) throw new Error('Nessuna riga trovata nel file. Prova a esportare in .csv');
         const guessed = guessMapping(c);
         setRows(r); setColumns(c); setMapping(guessed);
+        // Se il mapping automatico ha trovato data e tema, salva direttamente
+        if (guessed.data && guessed.tema) {
+          const activities = buildActivities(r, guessed, src);
+          if (activities.length > 0) {
+            onSave({ filename: file.name, activities });
+            setStep('saved');
+            setLoading(false);
+            return;
+          }
+        }
+        // Altrimenti mostra il mapping manuale
         setStep('mapping');
 
       } else if (ext === 'pdf') {
@@ -55,6 +66,15 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
         const { text, numSlides, tableResult, lines } = await parsePPTX(file);
         if (tableResult && tableResult.rows.length > 0) {
           const guessed = guessMapping(tableResult.columns);
+          if (guessed.data && guessed.tema) {
+            const activities = buildActivities(tableResult.rows, guessed, src);
+            if (activities.length > 0) {
+              onSave({ filename: file.name, activities });
+              setStep('saved');
+              setLoading(false);
+              return;
+            }
+          }
           setRows(tableResult.rows); setColumns(tableResult.columns); setMapping(guessed);
           setStep('mapping');
         } else {
