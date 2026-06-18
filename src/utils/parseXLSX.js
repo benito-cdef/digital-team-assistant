@@ -7,5 +7,5 @@ export async function parseXLSX(file) {
   const ws = wb.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
   const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
-  return { rows, columns };
+  return { rows, columns, wb };
 }

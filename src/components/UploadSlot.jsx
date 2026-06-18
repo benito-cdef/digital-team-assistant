@@ -5,6 +5,7 @@ import { parseXLSX } from '../utils/parseXLSX.js';
 import { parsePDF, parseWithAI } from '../utils/parsePDF.js';
 import { parsePPTX } from '../utils/parsePPTX.js';
 import { guessMapping, buildActivities, buildActivitiesFromAI } from '../utils/buildActivities.js';
+import { tryParseTransposed } from '../utils/parseTransposed.js';
 import MappingSelector from './MappingSelector.jsx';
 
 const ACCEPT = '.xlsx,.xls,.csv,.pdf,.pptx';
@@ -39,11 +40,26 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
       const ext = file.name.split('.').pop().toLowerCase();
 
       if (['xlsx', 'xls', 'csv'].includes(ext)) {
-        const { rows: r, columns: c } = await parseXLSX(file);
+        const { rows: r, columns: c, wb } = await parseXLSX(file);
         if (!r.length) throw new Error('Nessuna riga trovata nel file. Prova a esportare in .csv');
+
+        // 1. Prova parser trasposto (formato WEEKLY PLAN con settimane in colonna)
+        const transposedActivities = tryParseTransposed(wb, file);
+        if (transposedActivities && transposedActivities.length > 0) {
+          // Separa commerciale e brand in base alla fonte rilevata
+          const filtered = transposedActivities.filter(a =>
+            src === 'commercial' ? a.source === 'commercial' : a.source === 'brand'
+          );
+          const toSave = filtered.length > 0 ? filtered : transposedActivities;
+          onSave({ filename: file.name, activities: toSave });
+          setStep('saved');
+          setLoading(false);
+          return;
+        }
+
+        // 2. Prova mapping automatico colonne standard
         const guessed = guessMapping(c);
         setRows(r); setColumns(c); setMapping(guessed);
-        // Se il mapping automatico ha trovato data e tema, salva direttamente
         if (guessed.data && guessed.tema) {
           const activities = buildActivities(r, guessed, src);
           if (activities.length > 0) {
@@ -53,7 +69,8 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
             return;
           }
         }
-        // Altrimenti mostra il mapping manuale
+
+        // 3. Fallback: mostra mapping manuale
         setStep('mapping');
 
       } else if (ext === 'pdf') {
