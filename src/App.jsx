@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { T } from './tokens.js';
 import { loadAll } from './utils/storage.js';
+import { parseHash, pushHash, parseWeekParam } from './utils/router.js';
 import Header from './components/Header.jsx';
 import UploadView from './views/UploadView.jsx';
 import CalendarView from './views/CalendarView.jsx';
@@ -16,17 +17,11 @@ function loadPlan() {
 export function savePlan(p) {
   try {
     localStorage.setItem(PLAN_KEY, JSON.stringify(p));
-    // also update the saved-at timestamp so UploadView can show it
     localStorage.setItem(PLAN_KEY + ':ts', new Date().toISOString());
     return true;
-  } catch (e) {
-    console.error('savePlan failed:', e);
-    return false;
-  }
+  } catch { return false; }
 }
 
-// Deep set by dot-path  e.g. 'marketing.tuesday.ww'
-// If val is an object, it merges into the target (for block saves)
 function setPath(obj, path, val) {
   const clone = structuredClone(obj);
   const keys = path.split('.');
@@ -42,19 +37,24 @@ function setPath(obj, path, val) {
 }
 
 export default function App() {
-  const [view, setView]           = useState('upload');
+  const [route, setRoute]         = useState(parseHash());
   const [calendars, setCalendars] = useState(loadAll());
   const [plan, setPlan]           = useState(loadPlan());
-  const [animKey, setAnimKey]     = useState(0);
+
+  // Sync state ↔ URL hash
+  useEffect(() => {
+    function onHashChange() { setRoute(parseHash()); }
+    window.addEventListener('hashchange', onHashChange);
+    // Set initial hash if missing
+    if (!window.location.hash) pushHash('upload');
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  function navigate(view, param = null) { pushHash(view, param); }
 
   function refresh() {
     setCalendars(loadAll());
     setPlan(loadPlan());
-  }
-
-  function changeView(v) {
-    setView(v);
-    setAnimKey(k => k + 1);
   }
 
   const handlePlanChange = useCallback((weekIdx, path, val) => {
@@ -68,25 +68,48 @@ export default function App() {
     });
   }, []);
 
+  const { view, param } = route;
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg }}>
-      <Header view={view} onView={changeView} hasPlan={!!plan} />
+      <Header view={view} onView={v => navigate(v)} hasPlan={!!plan} />
+
       <main
-        key={animKey}
+        key={view}
         style={prefersReduced ? {} : { animation: 'fadeIn 280ms ease both' }}
       >
-        {view === 'upload'   && <UploadView calendars={calendars} onCalendarChange={refresh} onGo={() => changeView('calendar')} onPlanReady={(p) => { savePlan(p); setPlan(p); }} plan={plan} onGoToPiano={() => changeView('piano')} />}
+        {view === 'upload' && (
+          <UploadView
+            calendars={calendars}
+            onCalendarChange={refresh}
+            onGo={() => navigate('calendar')}
+            onPlanReady={p => { savePlan(p); setPlan(p); }}
+            plan={plan}
+            onGoToPiano={() => navigate('piano')}
+          />
+        )}
         {view === 'calendar' && <CalendarView calendars={calendars} />}
-        {view === 'report'   && <ReportView calendars={calendars} />}
-        {view === 'yoy'      && <YoYView calendars={calendars} />}
-        {view === 'piano'    && plan && <PianoView plan={plan} onChange={handlePlanChange} />}
-        {view === 'piano'    && !plan && (
+        {view === 'report'   && <ReportView   calendars={calendars} />}
+        {view === 'yoy'      && <YoYView      calendars={calendars} />}
+        {view === 'piano' && plan && (
+          <PianoView
+            plan={plan}
+            onChange={handlePlanChange}
+            initialWeekParam={param}
+            onWeekChange={(weekNum) => navigate('piano', `W${weekNum}`)}
+          />
+        )}
+        {view === 'piano' && !plan && (
           <div style={{ padding: 48, textAlign: 'center' }}>
             <p style={{ fontFamily: "'Arial Narrow', Arial", fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9A9791' }}>
               Carica il MASTER CALENDAR per accedere al piano settimanale
             </p>
+            <button onClick={() => navigate('upload')} style={{
+              marginTop: 16, padding: '8px 20px', background: T.ink, color: '#fff',
+              border: 'none', borderRadius: 2, fontFamily: "'Arial Narrow', Arial",
+              fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
+            }}>Vai all'upload →</button>
           </div>
         )}
       </main>

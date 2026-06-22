@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Pencil, Check, X, Download } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Pencil, Check, X, Download, Link } from 'lucide-react';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
 import { exportToExcel } from '../utils/exportCalendar.js';
+import { parseWeekParam } from '../utils/router.js';
 
 const MONTHS_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
                    'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
@@ -193,11 +194,38 @@ function KpiRow({ label, value, delta, positive }) {
 
 // ── Main view ──────────────────────────────────────────────
 
-export default function PianoView({ plan, onChange }) {
-  const [weekIdx, setWeekIdx] = useState(0);
-  const [viewMode, setViewMode] = useState('detail');
-
+export default function PianoView({ plan, onChange, initialWeekParam, onWeekChange }) {
   const { weeks } = plan;
+
+  // Resolve initial week index from URL param (e.g. "W24")
+  const initialIdx = useMemo(() => {
+    const wn = parseWeekParam(initialWeekParam);
+    if (!wn) return 0;
+    const i = weeks.findIndex(w => w.week === wn);
+    return i >= 0 ? i : 0;
+  }, [initialWeekParam, weeks]);
+
+  const [weekIdx, setWeekIdxRaw] = useState(initialIdx);
+  const [viewMode, setViewMode]  = useState('detail');
+
+  // Keep URL in sync when week changes
+  function setWeekIdx(idxOrFn) {
+    setWeekIdxRaw(prev => {
+      const next = typeof idxOrFn === 'function' ? idxOrFn(prev) : idxOrFn;
+      const week = weeks[next];
+      if (week && onWeekChange) onWeekChange(week.week);
+      return next;
+    });
+  }
+
+  // If URL param changes externally (e.g. back button), sync
+  useEffect(() => {
+    const wn = parseWeekParam(initialWeekParam);
+    if (!wn) return;
+    const i = weeks.findIndex(w => w.week === wn);
+    if (i >= 0 && i !== weekIdx) setWeekIdxRaw(i);
+  }, [initialWeekParam]);
+
   const cur = weeks[weekIdx];
   const date = new Date(cur.date);
 
@@ -241,6 +269,7 @@ export default function PianoView({ plan, onChange }) {
             <button key={m} onClick={() => {
               const idx = weeks.findIndex(w => new Date(w.date).getMonth() === m);
               if (idx >= 0) { setWeekIdx(idx); setViewMode('detail'); }
+              else setViewMode('detail');
             }} style={{
               padding: '4px 10px', borderRadius: 999,
               background: date.getMonth() === m ? T.gold : T.surface,
@@ -303,8 +332,9 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave }) {
               </div>
             </div>
 
-            {/* Nav arrows — isolated, no z-index fight */}
-            <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginTop: 4 }}>
+            {/* Nav + copy link */}
+            <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginTop: 4, alignItems: 'center' }}>
+              <CopyLinkBtn week={cur.week} />
               <NavBtn onClick={() => setWeekIdx(i => Math.max(0, i - 1))} disabled={weekIdx === 0}>
                 <ChevronLeft size={15}/>
               </NavBtn>
@@ -507,6 +537,33 @@ function NavBtn({ onClick, disabled, children }) {
       cursor: disabled ? 'not-allowed' : 'pointer',
       color: disabled ? T.muted : T.ink, padding: 0,
     }}>{children}</button>
+  );
+}
+
+function CopyLinkBtn({ week }) {
+  const [copied, setCopied] = useState(false);
+
+  function copy() {
+    const url = `${window.location.origin}${window.location.pathname}#/piano/W${week}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <button onClick={copy} title={`Copia link W${week}`} style={{
+      display: 'flex', alignItems: 'center', gap: 4,
+      padding: '4px 8px', borderRadius: 2,
+      border: `1px solid ${copied ? T.green : T.line}`,
+      background: copied ? T.greenBg : T.bg,
+      color: copied ? T.green : T.muted,
+      cursor: 'pointer', fontSize: 10,
+      fontFamily: fontTitle, letterSpacing: '0.06em', textTransform: 'uppercase',
+      transition: 'all 0.15s',
+    }}>
+      <Link size={10}/> {copied ? 'Copiato!' : 'Link'}
+    </button>
   );
 }
 

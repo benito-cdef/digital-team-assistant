@@ -32,14 +32,17 @@ export default function Header({ view, onView, hasPlan }) {
         {VIEWS.map(v => {
           const disabled = v.planRequired && !hasPlan;
           return (
-            <button
+            <a
               key={v.id}
-              onClick={() => !disabled && onView(v.id)}
+              href={disabled ? undefined : `#/${v.id}`}
+              onClick={e => { if (disabled) e.preventDefault(); }}
               title={disabled ? 'Carica il MASTER CALENDAR per accedere' : ''}
               style={{
+                display: 'inline-block',
                 background: view === v.id ? T.gold : 'transparent',
                 color: view === v.id ? T.ink : (disabled ? '#3a3836' : T.muted),
-                border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+                textDecoration: 'none',
+                cursor: disabled ? 'not-allowed' : 'pointer',
                 padding: '6px 14px', borderRadius: 2,
                 fontFamily: fontTitle, fontSize: 11,
                 letterSpacing: '0.1em', textTransform: 'uppercase',
@@ -47,14 +50,12 @@ export default function Header({ view, onView, hasPlan }) {
                 transition: 'background 0.15s, color 0.15s',
                 opacity: disabled ? 0.4 : 1,
               }}
-              onFocus={e => { if (!disabled) e.target.style.outline = `2px solid ${T.gold}`; }}
-              onBlur={e => { e.target.style.outline = 'none'; }}
             >
               {v.label}
               {v.planRequired && hasPlan && (
                 <span style={{ display: 'inline-block', width: 5, height: 5, background: T.gold, borderRadius: 999, marginLeft: 5, verticalAlign: 'middle' }} />
               )}
-            </button>
+            </a>
           );
         })}
       </nav>
