@@ -2,7 +2,7 @@ import { T, fontTitle, fontBody } from '../tokens.js';
 import UploadSlot from '../components/UploadSlot.jsx';
 import { KEYS, saveCalendar, removeCalendar } from '../utils/storage.js';
 
-export default function UploadView({ calendars, onCalendarChange, onGo }) {
+export default function UploadView({ calendars, onCalendarChange, onGo, onPlanReady }) {
   function save(key, filename, activities) {
     const entry = { filename, uploadedAt: new Date().toISOString(), activities, rowCount: activities.length };
     saveCalendar(key, entry);
@@ -41,6 +41,7 @@ export default function UploadView({ calendars, onCalendarChange, onGo }) {
             data={calendars.curCom}
             onSave={handleSave(KEYS.curCom)}
             onSaveBoth={handleSaveBoth}
+            onPlanReady={onPlanReady}
             onRemove={() => handleRemove(KEYS.curCom)}
           />
           <UploadSlot

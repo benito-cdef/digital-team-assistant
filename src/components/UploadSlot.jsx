@@ -6,13 +6,14 @@ import { parsePDF, parseWithAI } from '../utils/parsePDF.js';
 import { parsePPTX } from '../utils/parsePPTX.js';
 import { guessMapping, buildActivities, buildActivitiesFromAI } from '../utils/buildActivities.js';
 import { tryParseTransposed } from '../utils/parseTransposed.js';
+import { parseFullCalendar } from '../utils/parseFullCalendar.js';
 import MappingSelector from './MappingSelector.jsx';
 
 const ACCEPT = '.xlsx,.xls,.csv,.pdf,.pptx';
 
 // Step: 'idle' | 'mapping' | 'preview_text' | 'ai_loading' | 'ai_preview' | 'saved' | 'error'
 
-export default function UploadSlot({ label, accent, storageKey, data, onSave, onSaveBoth, onRemove, isPrev }) {
+export default function UploadSlot({ label, accent, storageKey, data, onSave, onSaveBoth, onPlanReady, onRemove, isPrev }) {
   const [step, setStep]         = useState(data ? 'saved' : 'idle');
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading]   = useState(false);
@@ -42,6 +43,12 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
       if (['xlsx', 'xls', 'csv'].includes(ext)) {
         const { rows: r, columns: c, wb } = await parseXLSX(file);
         if (!r.length) throw new Error('Nessuna riga trovata nel file. Prova a esportare in .csv');
+
+        // 0. Prova parsing completo WEEKLY PLAN (Piano settimanale)
+        const fullPlan = parseFullCalendar(wb, file.name);
+        if (fullPlan && fullPlan.weeks.length > 0 && onPlanReady) {
+          onPlanReady(fullPlan);
+        }
 
         // 1. Prova parser trasposto (formato WEEKLY PLAN con settimane in colonna)
         const transposedActivities = tryParseTransposed(wb, file);
