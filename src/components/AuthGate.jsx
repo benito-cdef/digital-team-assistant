@@ -3,7 +3,33 @@ import { supabase, isAllowedEmail, ALLOWED_DOMAIN } from '../supabase.js';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
 import { isAuthCallback } from '../utils/router.js';
 
+// In sviluppo locale puoi impostare VITE_BYPASS_AUTH=true in .env.local
+// .env.local è in .gitignore (*.local) e non va MAI su Vercel/produzione
+const BYPASS_AUTH = import.meta.env.VITE_BYPASS_AUTH === 'true';
+
+// ── Wrapper: decide se usare il bypass o l'auth reale ─────────────────────
 export default function AuthGate({ children }) {
+  if (BYPASS_AUTH) {
+    return (
+      <div>
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
+          background: '#7c3aed', padding: '4px 24px',
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12,
+        }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#e9d5ff' }}>
+            🛠 DEV MODE — auth disabilitata (VITE_BYPASS_AUTH=true)
+          </span>
+        </div>
+        {children}
+      </div>
+    );
+  }
+  return <AuthGateReal>{children}</AuthGateReal>;
+}
+
+// ── Auth reale ────────────────────────────────────────────────────────────
+function AuthGateReal({ children }) {
   const [session, setSession]   = useState(null);
   const [loading, setLoading]   = useState(true);
   const [email, setEmail]       = useState('');
@@ -12,23 +38,39 @@ export default function AuthGate({ children }) {
   const [error, setError]       = useState('');
 
   useEffect(() => {
-    // Get current session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    // Se la pagina si è aperta con un hash di callback auth (access_token=…)
+    // NON usare getSession() per impostare loading=false — aspettiamo onAuthStateChange.
+    // Questo evita che il form di login lampeggi prima che Supabase scambi il token.
+    const isCallback = isAuthCallback();
+
+    if (!isCallback) {
+      // Sessione normale: leggi subito dalla cache
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session);
+        setLoading(false);
+      });
+    }
+    // Se isCallback=true, restiamo in loading=true finché onAuthStateChange non scatta.
+    // Timeout di sicurezza: se dopo 10s non arriva risposta (token scaduto/invalido) mostriamo il form
+    let safetyTimer;
+    if (isCallback) {
+      safetyTimer = setTimeout(() => setLoading(false), 10_000);
+    }
 
     // Listen for auth changes (magic link callback)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setLoading(false);
-      // After Supabase processes the magic link tokens, clean up the ugly hash from the URL
-      if (event === 'SIGNED_IN' && isAuthCallback()) {
+      // Dopo che Supabase processa i token, puliamo l'hash brutto dall'URL
+      if (event === 'SIGNED_IN' && isCallback) {
         window.history.replaceState(null, '', window.location.pathname + '#/upload');
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (safetyTimer) clearTimeout(safetyTimer);
+    };
   }, []);
 
   async function handleSendLink(e) {
@@ -51,7 +93,13 @@ export default function AuthGate({ children }) {
     setSending(false);
 
     if (authError) {
-      setError(authError.message);
+      // Supabase free tier: max 3 OTP email/ora
+      const msg = authError.message?.toLowerCase() ?? '';
+      if (msg.includes('rate limit') || msg.includes('email rate')) {
+        setError('Troppe richieste: Supabase limita a 3 email/ora sul piano gratuito. Riprova tra qualche minuto.');
+      } else {
+        setError(authError.message);
+      }
     } else {
       setStep('sent');
     }
