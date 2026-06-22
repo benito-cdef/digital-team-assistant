@@ -18,12 +18,18 @@ function savePlan(p) {
 }
 
 // Deep set by dot-path  e.g. 'marketing.tuesday.ww'
+// If val is an object, it merges into the target (for block saves)
 function setPath(obj, path, val) {
   const clone = structuredClone(obj);
   const keys = path.split('.');
   let cur = clone;
   for (let i = 0; i < keys.length - 1; i++) cur = cur[keys[i]];
-  cur[keys[keys.length - 1]] = val;
+  const last = keys[keys.length - 1];
+  if (val && typeof val === 'object' && !Array.isArray(val) && typeof cur[last] === 'object') {
+    cur[last] = { ...cur[last], ...val };
+  } else {
+    cur[last] = val;
+  }
   return clone;
 }
 
