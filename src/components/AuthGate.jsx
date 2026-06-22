@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase, isAllowedEmail, ALLOWED_DOMAIN } from '../supabase.js';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
+import { isAuthCallback } from '../utils/router.js';
 
 export default function AuthGate({ children }) {
   const [session, setSession]   = useState(null);
@@ -18,9 +19,13 @@ export default function AuthGate({ children }) {
     });
 
     // Listen for auth changes (magic link callback)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setLoading(false);
+      // After Supabase processes the magic link tokens, clean up the ugly hash from the URL
+      if (event === 'SIGNED_IN' && isAuthCallback()) {
+        window.history.replaceState(null, '', window.location.pathname + '#/upload');
+      }
     });
 
     return () => subscription.unsubscribe();
