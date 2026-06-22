@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
+import { isEditor } from '../config/editors.js';
 
 const ALLOWED_DOMAIN = 'goldengoose.com';
 const STORAGE_KEY    = 'dta:auth:email';
@@ -37,6 +38,7 @@ export default function AuthGate({ children }) {
 
   // ── Autenticato ───────────────────────────────────────────────────────────
   if (authed) {
+    const editor = isEditor(authed);
     return (
       <div>
         <div style={{
@@ -44,6 +46,11 @@ export default function AuthGate({ children }) {
           background: T.ink, padding: '5px 24px',
           display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12,
         }}>
+          {editor && (
+            <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.gold }}>
+              Editor
+            </span>
+          )}
           <span style={{ fontFamily: fontMono, fontSize: 10, color: T.muted }}>{authed}</span>
           <button onClick={handleSignOut} style={{
             fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
@@ -51,7 +58,8 @@ export default function AuthGate({ children }) {
             borderRadius: 2, padding: '3px 10px', cursor: 'pointer',
           }}>Esci</button>
         </div>
-        {children}
+        {/* Passa isEditor come prop a tutti i children tramite cloneElement */}
+        {typeof children === 'function' ? children({ userEmail: authed, isEditor: editor }) : children}
       </div>
     );
   }

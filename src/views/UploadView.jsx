@@ -2,34 +2,69 @@ import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
 import UploadSlot from '../components/UploadSlot.jsx';
 import { KEYS, saveCalendar, removeCalendar } from '../utils/storage.js';
 
-export default function UploadView({ calendars, onCalendarChange, onGo, onPlanReady, plan, onGoToPiano }) {
+export default function UploadView({ calendars, onCalendarChange, onGo, onPlanReady, plan, onGoToPiano, isEditor, cloudLoading }) {
   function save(key, filename, activities) {
     const entry = { filename, uploadedAt: new Date().toISOString(), activities, rowCount: activities.length };
     saveCalendar(key, entry);
     onCalendarChange();
   }
-
-  function handleSave(key) {
-    return ({ filename, activities }) => save(key, filename, activities);
-  }
-
+  function handleSave(key) { return ({ filename, activities }) => save(key, filename, activities); }
   function handleSaveBoth({ filename, commercial, brand }) {
     save(KEYS.curCom, filename, commercial);
     save(KEYS.curBra, filename, brand);
   }
-
-  function handleRemove(key) {
-    removeCalendar(key);
-    onCalendarChange();
-  }
+  function handleRemove(key) { removeCalendar(key); onCalendarChange(); }
 
   const hasAny = Object.values(calendars).some(Boolean);
   const planTs = localStorage.getItem('dta:plan:ts');
 
+  // ── Utente in sola lettura ─────────────────────────────────────────────
+  if (!isEditor) {
+    return (
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '40px 24px' }}>
+        {cloudLoading ? (
+          <div style={{ textAlign: 'center', padding: 48, color: T.muted, fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            Caricamento dati in corso…
+          </div>
+        ) : plan ? (
+          <div style={{
+            background: T.goldBg, border: `1px solid ${T.gold}`,
+            borderRadius: 4, padding: '20px 24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          }}>
+            <div>
+              <p style={{ fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.gold, margin: '0 0 4px' }}>
+                ★ Piano settimanale disponibile
+              </p>
+              <p style={{ fontFamily: fontBody, fontSize: 12, color: T.ink2, margin: 0 }}>
+                {plan.filename} · {plan.weeks?.length || 0} settimane
+                {planTs && <span style={{ color: T.muted, fontFamily: fontMono, fontSize: 10, marginLeft: 8 }}>
+                  aggiornato il {new Date(planTs).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </span>}
+              </p>
+            </div>
+            <button onClick={onGoToPiano} style={{
+              background: T.gold, color: T.ink, border: 'none', borderRadius: 2,
+              padding: '8px 18px', fontFamily: fontTitle, fontSize: 11,
+              letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 700,
+            }}>
+              Vai al Piano →
+            </button>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: 48, color: T.muted, fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            Nessun calendario caricato. Contatta un editor del team.
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Utente editor ──────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '40px 24px' }}>
 
-      {/* Piano status banner — shown when plan is already in memory */}
+      {/* Piano status banner */}
       {plan && (
         <div style={{
           background: T.goldBg, border: `1px solid ${T.gold}`,
@@ -47,15 +82,11 @@ export default function UploadView({ calendars, onCalendarChange, onGo, onPlanRe
               </span>}
             </p>
           </div>
-          <button
-            onClick={onGoToPiano}
-            style={{
-              background: T.gold, color: T.ink,
-              border: 'none', borderRadius: 2, padding: '8px 18px',
-              fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em',
-              textTransform: 'uppercase', cursor: 'pointer', fontWeight: 700, flexShrink: 0,
-            }}
-          >
+          <button onClick={onGoToPiano} style={{
+            background: T.gold, color: T.ink, border: 'none', borderRadius: 2,
+            padding: '8px 18px', fontFamily: fontTitle, fontSize: 11,
+            letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 700, flexShrink: 0,
+          }}>
             Vai al Piano →
           </button>
         </div>
@@ -67,25 +98,12 @@ export default function UploadView({ calendars, onCalendarChange, onGo, onPlanRe
           Anno corrente
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <UploadSlot
-            label="Calendario Commerciale"
-            accent="ink"
-            storageKey={KEYS.curCom}
-            data={calendars.curCom}
-            onSave={handleSave(KEYS.curCom)}
-            onSaveBoth={handleSaveBoth}
-            onPlanReady={onPlanReady}
-            onRemove={() => handleRemove(KEYS.curCom)}
-          />
-          <UploadSlot
-            label="Calendario Brand"
-            accent="gold"
-            storageKey={KEYS.curBra}
-            data={calendars.curBra}
-            onSave={handleSave(KEYS.curBra)}
-            onSaveBoth={handleSaveBoth}
-            onRemove={() => handleRemove(KEYS.curBra)}
-          />
+          <UploadSlot label="Calendario Commerciale" accent="ink" storageKey={KEYS.curCom}
+            data={calendars.curCom} onSave={handleSave(KEYS.curCom)}
+            onSaveBoth={handleSaveBoth} onPlanReady={onPlanReady} onRemove={() => handleRemove(KEYS.curCom)} />
+          <UploadSlot label="Calendario Brand" accent="gold" storageKey={KEYS.curBra}
+            data={calendars.curBra} onSave={handleSave(KEYS.curBra)}
+            onSaveBoth={handleSaveBoth} onRemove={() => handleRemove(KEYS.curBra)} />
         </div>
       </div>
 
