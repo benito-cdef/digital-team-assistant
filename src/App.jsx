@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { T } from './tokens.js';
 import { loadAll } from './utils/storage.js';
 import Header from './components/Header.jsx';
@@ -13,8 +13,16 @@ const PLAN_KEY = 'dta:plan';
 function loadPlan() {
   try { const r = localStorage.getItem(PLAN_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
 }
-function savePlan(p) {
-  try { localStorage.setItem(PLAN_KEY, JSON.stringify(p)); } catch {}
+export function savePlan(p) {
+  try {
+    localStorage.setItem(PLAN_KEY, JSON.stringify(p));
+    // also update the saved-at timestamp so UploadView can show it
+    localStorage.setItem(PLAN_KEY + ':ts', new Date().toISOString());
+    return true;
+  } catch (e) {
+    console.error('savePlan failed:', e);
+    return false;
+  }
 }
 
 // Deep set by dot-path  e.g. 'marketing.tuesday.ww'
@@ -69,7 +77,7 @@ export default function App() {
         key={animKey}
         style={prefersReduced ? {} : { animation: 'fadeIn 280ms ease both' }}
       >
-        {view === 'upload'   && <UploadView calendars={calendars} onCalendarChange={refresh} onGo={() => changeView('calendar')} onPlanReady={(p) => { savePlan(p); setPlan(p); }} />}
+        {view === 'upload'   && <UploadView calendars={calendars} onCalendarChange={refresh} onGo={() => changeView('calendar')} onPlanReady={(p) => { savePlan(p); setPlan(p); }} plan={plan} onGoToPiano={() => changeView('piano')} />}
         {view === 'calendar' && <CalendarView calendars={calendars} />}
         {view === 'report'   && <ReportView calendars={calendars} />}
         {view === 'yoy'      && <YoYView calendars={calendars} />}

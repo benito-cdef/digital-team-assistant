@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Pencil, Check, X } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Pencil, Check, X, Download } from 'lucide-react';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
+import { exportToExcel } from '../utils/exportCalendar.js';
 
 const MONTHS_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
                    'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
@@ -231,6 +232,9 @@ export default function PianoView({ plan, onChange }) {
             fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
           }}>{m === 'detail' ? 'Dettaglio settimana' : 'Panoramica mesi'}</button>
         ))}
+
+        {/* Export button */}
+        <ExportButton plan={plan} />
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {months.map(({ m, label }) => (
@@ -503,5 +507,43 @@ function NavBtn({ onClick, disabled, children }) {
       cursor: disabled ? 'not-allowed' : 'pointer',
       color: disabled ? T.muted : T.ink, padding: 0,
     }}>{children}</button>
+  );
+}
+
+function ExportButton({ plan }) {
+  const [exporting, setExporting] = useState(false);
+  const [done, setDone]           = useState('');
+
+  async function handleExport() {
+    setExporting(true);
+    setDone('');
+    try {
+      const name = exportToExcel(plan);
+      setDone(name);
+      setTimeout(() => setDone(''), 4000);
+    } catch (e) {
+      alert('Errore durante l\'export: ' + e.message);
+    }
+    setExporting(false);
+  }
+
+  return (
+    <button
+      onClick={handleExport}
+      disabled={exporting}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        padding: '5px 14px', borderRadius: 2,
+        background: done ? T.greenBg : T.surface,
+        color: done ? T.green : T.ink2,
+        border: `1px solid ${done ? T.green : T.line}`,
+        cursor: exporting ? 'wait' : 'pointer',
+        fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+        transition: 'all 0.2s',
+      }}
+    >
+      <Download size={12} />
+      {done ? 'Scaricato ✓' : exporting ? 'Generazione…' : 'Esporta Excel'}
+    </button>
   );
 }
