@@ -286,6 +286,7 @@ export default function PianoView({ plan, onChange, initialWeekParam, onWeekChan
           cur={cur} weekIdx={weekIdx} weeks={weeks}
           setWeekIdx={setWeekIdx} date={date}
           onBlockSave={(section, draft) => handleBlockSave(weekIdx, section, draft)}
+          canEdit={!!isEditor}
         />
       ) : (
         <OverviewMode weeks={weeks} onSelect={i => { setWeekIdx(i); setViewMode('detail'); }} />
@@ -296,7 +297,7 @@ export default function PianoView({ plan, onChange, initialWeekParam, onWeekChan
 
 // ── Detail view ────────────────────────────────────────────
 
-function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave }) {
+function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, canEdit }) {
   const hasPerf = cur.performance.ecomLY !== null || cur.performance.ecomActual !== null;
   const monthName = MONTHS_IT[date.getMonth()];
 
@@ -346,7 +347,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave }) {
         </div>
 
         {/* Context block */}
-        <EditBlock canEdit={isEditor} title="Contesto" onSave={draft => onBlockSave('context', draft)}>
+        <EditBlock canEdit={canEdit} title="Contesto" onSave={draft => onBlockSave('context', draft)}>
           {({ editing, draft, setDraft }) => (
             <>
               <ReadField label="2025 (last year)" value={cur.context.lastYear} dim />
@@ -357,7 +358,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave }) {
         </EditBlock>
 
         {/* Brand Calendar */}
-        <EditBlock canEdit={isEditor} title="Brand Calendar" accent={T.gold} onSave={draft => onBlockSave('brand', draft)}>
+        <EditBlock canEdit={canEdit} title="Brand Calendar" accent={T.gold} onSave={draft => onBlockSave('brand', draft)}>
           {({ editing, draft, setDraft }) => (
             <>
               {[
@@ -393,7 +394,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Tuesday */}
-        <EditBlock canEdit={isEditor} title="Martedì — WW Push" onSave={draft => onBlockSave('marketing.tuesday', draft)}>
+        <EditBlock canEdit={canEdit} title="Martedì — WW Push" onSave={draft => onBlockSave('marketing.tuesday', draft)}>
           {({ editing, draft, setDraft }) => (
             <>
               <Field label="Topic WW"  value={cur.marketing.tuesday.ww}      fieldKey="ww"      editing={editing} draft={draft} setDraft={setDraft} multiline />
@@ -405,7 +406,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave }) {
         </EditBlock>
 
         {/* Wednesday */}
-        <EditBlock canEdit={isEditor} title="Mercoledì — Best Performer" onSave={draft => onBlockSave('marketing.wednesday', draft)}>
+        <EditBlock canEdit={canEdit} title="Mercoledì — Best Performer" onSave={draft => onBlockSave('marketing.wednesday', draft)}>
           {({ editing, draft, setDraft }) => (
             <>
               <Field label="Topic"  value={cur.marketing.wednesday.topic} fieldKey="topic" editing={editing} draft={draft} setDraft={setDraft} />
@@ -417,7 +418,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave }) {
         </EditBlock>
 
         {/* Thursday */}
-        <EditBlock canEdit={isEditor} title="Giovedì" onSave={draft => onBlockSave('marketing.thursday', draft)}>
+        <EditBlock canEdit={canEdit} title="Giovedì" onSave={draft => onBlockSave('marketing.thursday', draft)}>
           {({ editing, draft, setDraft }) => (
             <>
               <Field label="Topic" value={cur.marketing.thursday.topic} fieldKey="topic" editing={editing} draft={draft} setDraft={setDraft} />
@@ -429,7 +430,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave }) {
         </EditBlock>
 
         {/* Friday */}
-        <EditBlock canEdit={isEditor} title="Venerdì — Worst Seller + App" onSave={draft => onBlockSave('marketing.friday', draft)}>
+        <EditBlock canEdit={canEdit} title="Venerdì — Worst Seller + App" onSave={draft => onBlockSave('marketing.friday', draft)}>
           {({ editing, draft, setDraft }) => (
             <>
               <Field label="Topic WS" value={cur.marketing.friday.topic} fieldKey="topic" editing={editing} draft={draft} setDraft={setDraft} />
@@ -444,7 +445,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave }) {
         </EditBlock>
 
         {/* Saturday */}
-        <EditBlock canEdit={isEditor} title="Sabato — Newsletter" onSave={draft => onBlockSave('marketing.saturday', draft)}>
+        <EditBlock canEdit={canEdit} title="Sabato — Newsletter" onSave={draft => onBlockSave('marketing.saturday', draft)}>
           {({ editing, draft, setDraft }) => (
             <>
               <Field label="Topic"  value={cur.marketing.saturday.topic}   fieldKey="topic"   editing={editing} draft={draft} setDraft={setDraft} multiline />
