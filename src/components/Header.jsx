@@ -1,10 +1,9 @@
 import { T, fontTitle } from '../tokens.js';
 
 const VIEWS = [
-  { id: 'upload',   label: 'Upload' },
-  { id: 'piano',    label: 'Piano', planRequired: true },
+  { id: 'home',     label: 'Home' },
   { id: 'calendar', label: 'Calendario' },
-  { id: 'report',   label: 'Report' },
+  { id: 'piano',    label: 'Piano', planRequired: true },
   { id: 'yoy',      label: 'Anno su Anno' },
 ];
 

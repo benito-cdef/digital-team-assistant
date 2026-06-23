@@ -4,9 +4,8 @@ import { loadAll } from './utils/storage.js';
 import { parseHash, pushHash } from './utils/router.js';
 import { loadPlanFromCloud, savePlanToCloud } from './utils/cloudStorage.js';
 import Header from './components/Header.jsx';
-import UploadView from './views/UploadView.jsx';
+import HomeView from './views/HomeView.jsx';
 import CalendarView from './views/CalendarView.jsx';
-import ReportView from './views/ReportView.jsx';
 import YoYView from './views/YoYView.jsx';
 import PianoView from './views/PianoView.jsx';
 
@@ -58,7 +57,7 @@ export default function App({ userEmail, isEditor }) {
   useEffect(() => {
     function onHashChange() { setRoute(parseHash()); }
     window.addEventListener('hashchange', onHashChange);
-    if (!window.location.hash) pushHash('upload');
+    if (!window.location.hash) pushHash('home');
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
@@ -110,8 +109,8 @@ export default function App({ userEmail, isEditor }) {
 
       <main key={view} style={prefersReduced ? {} : { animation: 'fadeIn 280ms ease both' }}>
 
-        {view === 'upload' && (
-          <UploadView
+        {view === 'home' && (
+          <HomeView
             calendars={calendars}
             onCalendarChange={refresh}
             onGo={() => navigate('calendar')}
@@ -122,8 +121,9 @@ export default function App({ userEmail, isEditor }) {
             cloudLoading={cloudLoading}
           />
         )}
+        {/* Retrocompatibilità vecchi link */}
+        {(view === 'upload' || view === 'report') && navigate('home')}
         {view === 'calendar' && <CalendarView calendars={calendars} />}
-        {view === 'report'   && <ReportView   calendars={calendars} />}
         {view === 'yoy'      && <YoYView      calendars={calendars} />}
 
         {view === 'piano' && plan && (
