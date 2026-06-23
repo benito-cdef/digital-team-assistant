@@ -1,7 +1,28 @@
 import * as XLSX from 'xlsx';
 
-// Row indices (0-based) in WEEKLY PLAN sheet
-const R = {
+// ── Row maps (0-based) ─────────────────────────────────────────────────────
+//
+// 2026 format:
+//   R0  QUARTER  R1  MONTH
+//   R4  Commercial  R5  Brand Push
+//   R6  WEEK  R7  WEEKDAYS
+//   R8  ECOM LY  R9  ECOM BDG  R10 ΔLY  R11 ECOM ACT  R12 ΔACT
+//   R13 RTL LY  R14 RTL BDG
+//   R16 LAST YEAR  R17 WEEK TOPIC
+//   R18 MAIN CAMPAIGN  R19 COMMERCIAL  R20 OPPORTUNITY  R21 CORPORATE  R22 REGIONAL
+//   R23 TUE WW  R24 TUE SKU  R25 TUE NOTE  R26 TUE IMAGE
+//   R27 WED TOPIC  R28 WED EU  R29 WED US  R30 WED KR
+//   R31 THU TOPIC  R32 THU EU  R33 THU US  R34 THU KR
+//   R35 FRI TOPIC  R36 FRI EU  R37 FRI US  R38 FRI KR
+//   R39 FRI APP  R40 FRI PRODUCT  R41 FRI IMAGE
+//   R42 SAT TOPIC  R43 SAT SKU  R44 SATURDAY
+//
+// 2025 format: 2 extra rows (Monthly Budget + Actual) at R2-R3,
+//   and 2 extra rows in performance (Forecast R10, FCT3 R13).
+//   No RTL rows. No TUE_WW separate row. No SAT_TOPIC/SAT_SKU.
+//   Everything from LAST_YEAR onwards shifted -1 vs 2026.
+
+const R2026 = {
   QUARTER:       0,
   MONTH:         1,
   COMMERCIAL:    4,
@@ -46,15 +67,69 @@ const R = {
   SATURDAY:      44,
 };
 
+const R2025 = {
+  QUARTER:       0,
+  MONTH:         1,
+  // R2 = Monthly Budget, R3 = Monthly Actual (skipped)
+  COMMERCIAL:    4,
+  BRAND_PUSH:    5,
+  WEEK:          6,
+  WEEKDAYS:      7,
+  ECOM_LY:       8,
+  ECOM_BDG:      9,
+  // R10 = Forecast (skipped), R13 = FCT3 (skipped)
+  ECOM_DELTA_LY: 11,
+  ECOM_ACT:      12,
+  ECOM_DELTA_ACT:14,
+  // No RTL_LY / RTL_BDG
+  RTL_LY:        null,
+  RTL_BDG:       null,
+  LAST_YEAR:     15,
+  WEEK_TOPIC:    16,
+  MAIN_CAMPAIGN: 17,
+  COMMERCIAL2:   18,
+  OPPORTUNITY:   19,
+  CORPORATE:     20,
+  REGIONAL:      21,
+  // 2025: Tuesday col B="TUESDAY - WW", col C="NOTE" at R22
+  TUE_WW:        null,   // no separate WW row
+  TUE_NOTE:      22,
+  TUE_SKU:       23,
+  // R24 = extra collection name row (skipped)
+  TUE_IMAGE:     25,
+  WED_TOPIC:     26,     // "REGIONAL BEST SELLER" type header
+  WED_EU:        27,
+  WED_US:        28,
+  WED_KR:        29,
+  THU_TOPIC:     null,   // no separate topic row
+  THU_EU:        30,
+  THU_US:        31,
+  THU_KR:        32,
+  // R33 = extra Thursday topic row (skipped)
+  FRI_TOPIC:     null,
+  FRI_EU:        34,
+  FRI_US:        35,
+  FRI_KR:        36,
+  FRI_APP:       37,
+  FRI_PRODUCT:   38,
+  FRI_APP_IMG:   39,
+  // R40-41 empty
+  SAT_TOPIC:     null,
+  SAT_SKU:       null,
+  SATURDAY:      42,
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
 function v(rows, rowIdx, col) {
-  if (rowIdx >= rows.length) return '';
+  if (rowIdx === null || rowIdx === undefined || rowIdx >= rows.length) return '';
   const val = rows[rowIdx]?.[col];
   if (val === undefined || val === null) return '';
   return String(val).trim();
 }
 
 function num(rows, rowIdx, col) {
-  if (rowIdx >= rows.length) return null;
+  if (rowIdx === null || rowIdx === undefined || rowIdx >= rows.length) return null;
   const val = rows[rowIdx]?.[col];
   if (val === '' || val === undefined || val === null) return null;
   const n = parseFloat(val);
@@ -63,12 +138,25 @@ function num(rows, rowIdx, col) {
 
 function weekToMonday(year, week) {
   const jan4 = new Date(year, 0, 4);
-  const dow = jan4.getDay() || 7;
-  const mon = new Date(jan4);
+  const dow  = jan4.getDay() || 7;
+  const mon  = new Date(jan4);
   mon.setDate(jan4.getDate() - dow + 1 + (week - 1) * 7);
   mon.setHours(0, 0, 0, 0);
   return mon;
 }
+
+// Detect 2025 vs 2026 format by inspecting the sheet content.
+// In 2025, row 10 col 2 contains "Forecast"; in 2026 it's a delta number.
+function detectFormat(rows) {
+  const row10c2 = String(rows[10]?.[2] ?? '').toLowerCase();
+  if (row10c2.includes('forecast') || row10c2.includes('previsione')) return '2025';
+  // Also check row 2 for "Monthly Budget"
+  const row2c2 = String(rows[2]?.[2] ?? '').toLowerCase();
+  if (row2c2.includes('budget') || row2c2.includes('monthly')) return '2025';
+  return '2026';
+}
+
+// ── Main export ────────────────────────────────────────────────────────────
 
 export function parseFullCalendar(wb, filename) {
   const sheetPriority = ['WEEKLY PLAN 2026', 'WEEKLY PLAN 2025', 'WEEKLY PLAN 2024', 'WEEKLY PLAN'];
@@ -76,16 +164,26 @@ export function parseFullCalendar(wb, filename) {
     || wb.SheetNames.find(n => /weekly.?plan/i.test(n));
   if (!sheetName) return null;
 
-  const ws = wb.Sheets[sheetName];
+  const ws   = wb.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json(ws, { defval: '', header: 1 });
 
-  const weekRow = rows[R.WEEK];
+  // Detect format: prefer sheet name hint, fallback to content
+  const sheetYearMatch = sheetName.match(/20(\d{2})/);
+  const fileYearMatch  = (filename || '').match(/20(\d{2})/);
+  const hintYear       = sheetYearMatch?.[0] || fileYearMatch?.[0];
+
+  let format;
+  if (hintYear === '2025') format = '2025';
+  else if (hintYear === '2026') format = '2026';
+  else format = detectFormat(rows);
+
+  const R = format === '2025' ? R2025 : R2026;
+  const year = hintYear ? parseInt(hintYear) : new Date().getFullYear();
+
+  const weekRow    = rows[R.WEEK];
   const weekColIdx = weekRow.findIndex(c => /^(week|settimana)$/i.test(String(c).trim()));
   if (weekColIdx === -1) return null;
   const startCol = weekColIdx + 1;
-
-  const yearMatch = (filename || sheetName || '').match(/20(\d{2})/);
-  const year = yearMatch ? parseInt('20' + yearMatch[1]) : new Date().getFullYear();
 
   const weeks = [];
 
@@ -102,6 +200,9 @@ export function parseFullCalendar(wb, filename) {
       quarter:  v(rows, R.QUARTER,  col),
       month:    v(rows, R.MONTH,    col),
       weekdays: v(rows, R.WEEKDAYS, col),
+
+      commercial: v(rows, R.COMMERCIAL, col),
+      brandPush:  v(rows, R.BRAND_PUSH, col),
 
       performance: {
         ecomLY:       num(rows, R.ECOM_LY,       col),
@@ -155,13 +256,13 @@ export function parseFullCalendar(wb, filename) {
           appImage:    v(rows, R.FRI_APP_IMG,  col),
         },
         saturday: {
-          topic:  v(rows, R.SAT_TOPIC, col),
-          skuCode: v(rows, R.SAT_SKU,  col),
-          note:    v(rows, R.SATURDAY, col),
+          topic:   v(rows, R.SAT_TOPIC, col),
+          skuCode: v(rows, R.SAT_SKU,   col),
+          note:    v(rows, R.SATURDAY,  col),
         },
       },
     });
   }
 
-  return { weeks, sheetName, year, filename };
+  return { weeks, sheetName, year, format, filename };
 }
