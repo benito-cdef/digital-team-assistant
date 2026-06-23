@@ -1,8 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { T } from './tokens.js';
-import { loadAll } from './utils/storage.js';
+import { loadAll, saveCalendar, KEYS } from './utils/storage.js';
 import { parseHash, pushHash } from './utils/router.js';
-import { loadPlanFromCloud, savePlanToCloud } from './utils/cloudStorage.js';
+import {
+  loadPlanFromCloud, savePlanToCloud,
+  loadCalendarsFromCloud, saveCalendarsToCloud,
+} from './utils/cloudStorage.js';
 import Header from './components/Header.jsx';
 import HomeView from './views/HomeView.jsx';
 import CalendarView from './views/CalendarView.jsx';
@@ -18,7 +21,7 @@ function savePlanLocal(p) {
   try {
     localStorage.setItem(PLAN_KEY, JSON.stringify(p));
     localStorage.setItem(PLAN_KEY + ':ts', new Date().toISOString());
-  } catch { /* quota exceeded — ignora */ }
+  } catch { /* quota */ }
 }
 
 function setPath(obj, path, val) {
@@ -35,6 +38,28 @@ function setPath(obj, path, val) {
   return clone;
 }
 
+// Converte il formato localStorage → oggetto calendars che l'app usa
+function calendarsFromCloud(data) {
+  if (!data) return {};
+  // Ricostruisce le date (stringhe ISO → Date) per ogni attività
+  const rehydrate = (cal) => {
+    if (!cal) return null;
+    return {
+      ...cal,
+      activities: (cal.activities || []).map(a => ({
+        ...a,
+        date: a.date ? new Date(a.date) : null,
+      })),
+    };
+  };
+  return {
+    curCom: rehydrate(data.curCom),
+    curBra: rehydrate(data.curBra),
+    preCom: rehydrate(data.preCom),
+    preBra: rehydrate(data.preBra),
+  };
+}
+
 export default function App({ userEmail, isEditor }) {
   const [route, setRoute]         = useState(parseHash());
   const [calendars, setCalendars] = useState(loadAll());
@@ -42,18 +67,30 @@ export default function App({ userEmail, isEditor }) {
   const [cloudLoading, setCloudLoading] = useState(true);
   const [cloudSaving,  setCloudSaving]  = useState(false);
 
-  // ── Al mount: carica il piano dal cloud ──────────────────────────────────
+  // ── Al mount: carica piano + calendari dal cloud ──────────────────────────
   useEffect(() => {
-    loadPlanFromCloud().then(cloudPlan => {
+    Promise.all([
+      loadPlanFromCloud(),
+      loadCalendarsFromCloud(),
+    ]).then(([cloudPlan, cloudCals]) => {
       if (cloudPlan) {
         setPlan(cloudPlan);
-        savePlanLocal(cloudPlan); // cache locale per offline
+        savePlanLocal(cloudPlan);
+      }
+      if (cloudCals) {
+        // Salva in localStorage per cache offline
+        const hydrated = calendarsFromCloud(cloudCals);
+        if (hydrated.curCom) saveCalendar(KEYS.curCom, hydrated.curCom);
+        if (hydrated.curBra) saveCalendar(KEYS.curBra, hydrated.curBra);
+        if (hydrated.preCom) saveCalendar(KEYS.preCom, hydrated.preCom);
+        if (hydrated.preBra) saveCalendar(KEYS.preBra, hydrated.preBra);
+        setCalendars(loadAll());
       }
       setCloudLoading(false);
     }).catch(() => setCloudLoading(false));
   }, []);
 
-  // ── Hash routing ─────────────────────────────────────────────────────────
+  // ── Hash routing ──────────────────────────────────────────────────────────
   useEffect(() => {
     function onHashChange() { setRoute(parseHash()); }
     window.addEventListener('hashchange', onHashChange);
@@ -62,20 +99,28 @@ export default function App({ userEmail, isEditor }) {
   }, []);
 
   function navigate(view, param = null) { pushHash(view, param); }
-  function refresh() { setCalendars(loadAll()); }
 
-  // ── Salva piano (cloud + locale) — solo editor ───────────────────────────
+  function refresh() {
+    const updated = loadAll();
+    setCalendars(updated);
+    // Salva sul cloud ogni volta che un editor aggiorna i calendari
+    if (isEditor) {
+      saveCalendarsToCloud(updated).catch(console.error);
+    }
+  }
+
+  // ── Salva piano — solo editor ─────────────────────────────────────────────
   async function handlePlanReady(p) {
     setPlan(p);
     savePlanLocal(p);
     if (isEditor) {
       setCloudSaving(true);
-      try { await savePlanToCloud(p); } catch (e) { console.error('Cloud save error', e); }
+      try { await savePlanToCloud(p); } catch (e) { console.error('Cloud save plan', e); }
       setCloudSaving(false);
     }
   }
 
-  // ── Modifica inline dal Piano view ───────────────────────────────────────
+  // ── Modifica inline Piano view ────────────────────────────────────────────
   const handlePlanChange = useCallback((weekIdx, path, val) => {
     setPlan(prev => {
       if (!prev) return prev;
@@ -95,7 +140,6 @@ export default function App({ userEmail, isEditor }) {
     <div style={{ minHeight: '100vh', background: T.bg }}>
       <Header view={view} onView={v => navigate(v)} hasPlan={!!plan} />
 
-      {/* Banner salvataggio cloud */}
       {cloudSaving && (
         <div style={{
           position: 'fixed', top: 56, left: 0, right: 0, zIndex: 99,
@@ -121,8 +165,8 @@ export default function App({ userEmail, isEditor }) {
             cloudLoading={cloudLoading}
           />
         )}
-        {/* Retrocompatibilità vecchi link */}
         {(view === 'upload' || view === 'report') && navigate('home')}
+
         {view === 'calendar' && <CalendarView calendars={calendars} />}
         {view === 'yoy'      && <YoYView      calendars={calendars} />}
 
@@ -131,7 +175,7 @@ export default function App({ userEmail, isEditor }) {
             plan={plan}
             onChange={handlePlanChange}
             initialWeekParam={param}
-            onWeekChange={(weekNum) => navigate('piano', `W${weekNum}`)}
+            onWeekChange={weekNum => navigate('piano', `W${weekNum}`)}
             isEditor={isEditor}
           />
         )}
@@ -141,11 +185,11 @@ export default function App({ userEmail, isEditor }) {
               Carica il MASTER CALENDAR per accedere al piano settimanale
             </p>
             {isEditor && (
-              <button onClick={() => navigate('upload')} style={{
+              <button onClick={() => navigate('home')} style={{
                 marginTop: 16, padding: '8px 20px', background: T.ink, color: '#fff',
                 border: 'none', borderRadius: 2, fontFamily: "'Arial Narrow', Arial",
                 fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
-              }}>Vai all'upload →</button>
+              }}>Vai alla Home →</button>
             )}
           </div>
         )}
@@ -157,10 +201,7 @@ export default function App({ userEmail, isEditor }) {
       </main>
 
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(5px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
         * { box-sizing: border-box; }
         body { margin: 0; }
         button:focus-visible { outline: 2px solid ${T.gold} !important; outline-offset: 2px; }
