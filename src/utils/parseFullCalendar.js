@@ -62,8 +62,9 @@ const R2026 = {
   FRI_APP:       39,
   FRI_PRODUCT:   40,
   FRI_APP_IMG:   41,
-  SAT_TOPIC:     42,
-  SAT_SKU:       43,
+  // 2026: R42-43 vuote, i dati Saturday sono a R44
+  SAT_TOPIC:     null,
+  SAT_SKU:       null,
   SATURDAY:      44,
 };
 
@@ -119,6 +120,28 @@ const R2025 = {
   SATURDAY:      42,
 };
 
+// ── Fill merged cells ──────────────────────────────────────────────────────
+// SheetJS sheet_to_json lascia vuote le celle all'interno di un merge.
+// Questa funzione propaga il valore della prima cella a tutte le altre
+// così le attività multi-settimana appaiono in ogni settimana che coprono.
+function fillMerges(ws) {
+  const merges = ws['!merges'] || [];
+  for (const { s, e } of merges) {
+    const srcAddr = XLSX.utils.encode_cell({ r: s.r, c: s.c });
+    const srcCell = ws[srcAddr];
+    if (!srcCell) continue;                          // cella sorgente vuota
+    for (let r = s.r; r <= e.r; r++) {
+      for (let c = s.c; c <= e.c; c++) {
+        if (r === s.r && c === s.c) continue;        // skip origine
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (!ws[addr]) {
+          ws[addr] = { ...srcCell };                 // copia valore e tipo
+        }
+      }
+    }
+  }
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function v(rows, rowIdx, col) {
@@ -165,6 +188,7 @@ export function parseFullCalendar(wb, filename) {
   if (!sheetName) return null;
 
   const ws   = wb.Sheets[sheetName];
+  fillMerges(ws);   // propaga valori celle unite → attività multi-settimana
   const rows = XLSX.utils.sheet_to_json(ws, { defval: '', header: 1 });
 
   // Detect format: prefer sheet name hint, fallback to content
