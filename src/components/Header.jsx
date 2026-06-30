@@ -1,13 +1,15 @@
 import { T, fontTitle } from '../tokens.js';
 
 const VIEWS = [
-  { id: 'home',     label: 'Home' },
-  { id: 'calendar', label: 'Calendario' },
-  { id: 'piano',    label: 'Piano', planRequired: true },
-  { id: 'yoy',      label: 'Anno su Anno' },
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'calendar',  label: 'Calendario' },
+  { id: 'piano',     label: 'Piano', planRequired: true },
+  { id: 'yoy',       label: 'Anno su Anno' },
+  { id: 'settings',  label: 'Settings', superAdminOnly: true },
 ];
 
-export default function Header({ view, onView, hasPlan }) {
+export default function Header({ view, onView, hasPlan, isSuperAdmin }) {
+  const views = VIEWS.filter(v => !v.superAdminOnly || isSuperAdmin);
   return (
     <header style={{
       position: 'sticky', top: 0, zIndex: 100,
@@ -28,7 +30,7 @@ export default function Header({ view, onView, hasPlan }) {
 
       {/* Nav */}
       <nav style={{ display: 'flex', gap: 4 }}>
-        {VIEWS.map(v => {
+        {views.map(v => {
           const disabled = v.planRequired && !hasPlan;
           return (
             <a

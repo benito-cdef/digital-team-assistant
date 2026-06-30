@@ -4,8 +4,8 @@
  * La scrittura è permessa tramite anon key (controllo editor nel frontend).
  *
  * Files nel bucket 'calendar-data':
- *   plan.json       → dati Piano (52 settimane)
- *   calendars.json  → attività commerciali e brand (per Calendario, Report, YoY)
+ *   plan_{year}.json → dati Piano per anno (es. plan_2026.json)
+ *   calendars.json   → attività commerciali e brand (per Calendario, Report, YoY)
  */
 
 const SUPABASE_URL  = 'https://xnekmhtmapkxzcrdzhoh.supabase.co';
@@ -50,9 +50,55 @@ async function cloudSave(fileName, data) {
   return true;
 }
 
-// ── Piano (52 settimane) ──────────────────────────────────────────────────
-export const loadPlanFromCloud       = () => cloudLoad('plan.json');
-export const savePlanToCloud         = (data) => cloudSave('plan.json', data);
+// ── Migrazione legacy plan.json → plan_2026.json ──────────────────────────
+// Se plan_2026.json non esiste ma plan.json sì, copia il contenuto una volta.
+let migrationDone = false;
+async function migrateLegacyPlan() {
+  if (migrationDone) return;
+  migrationDone = true;
+  try {
+    const existing2026 = await cloudLoad('plan_2026.json');
+    if (existing2026) return; // già migrato
+    const legacy = await cloudLoad('plan.json');
+    if (legacy) {
+      await cloudSave('plan_2026.json', legacy);
+    }
+  } catch (e) {
+    console.error('Legacy plan migration error:', e);
+  }
+}
+
+// ── Piano per anno ────────────────────────────────────────────────────────
+export async function loadPlanFromCloud(year) {
+  await migrateLegacyPlan();
+  return cloudLoad(`plan_${year}.json`);
+}
+export const savePlanToCloud = (year, data) => cloudSave(`plan_${year}.json`, data);
+
+// ── Lista anni con piano disponibile ──────────────────────────────────────
+export async function listAvailablePlanYears() {
+  try {
+    const url = `${SUPABASE_URL}/storage/v1/object/list/${BUCKET}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+      },
+      body: JSON.stringify({ prefix: '', limit: 1000, sortBy: { column: 'name', order: 'asc' } }),
+    });
+    if (!res.ok) return [];
+    const files = await res.json();
+    const years = [];
+    for (const f of files) {
+      const m = (f.name || '').match(/^plan_(\d{4})\.json$/);
+      if (m) years.push(parseInt(m[1]));
+    }
+    return years.sort((a, b) => a - b);
+  } catch {
+    return [];
+  }
+}
 
 // ── Calendari (attività per Calendario / Report / YoY) ───────────────────
 export const loadCalendarsFromCloud  = () => cloudLoad('calendars.json');

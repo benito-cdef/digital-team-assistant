@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
 import { isEditor } from '../config/editors.js';
+import { getOrCreateUser } from '../utils/db.js';
 
 const ALLOWED_DOMAIN = 'goldengoose.com';
 const STORAGE_KEY    = 'dta:auth:email';
@@ -9,24 +10,47 @@ function isAllowed(email) {
   return email?.trim().toLowerCase().endsWith('@' + ALLOWED_DOMAIN);
 }
 
+function fallbackRole(email) {
+  return isEditor(email) ? 'editor' : 'user';
+}
+
 export default function AuthGate({ children }) {
   const [email,   setEmail]   = useState('');
   const [blocked, setBlocked] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [authed,  setAuthed]  = useState(() => {
-    // Ricorda l'email tra i reload
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved && isAllowed(saved) ? saved : null;
   });
+  const [userRole, setUserRole] = useState('user');
 
-  function handleSubmit(e) {
+  // Risolve il ruolo dal DB quando c'è un'email autenticata (anche da reload)
+  useEffect(() => {
+    if (!authed) return;
+    let cancelled = false;
+    getOrCreateUser(authed)
+      .then(rec => { if (!cancelled) setUserRole(rec?.role || fallbackRole(authed)); })
+      .catch(() => { if (!cancelled) setUserRole(fallbackRole(authed)); });
+    return () => { cancelled = true; };
+  }, [authed]);
+
+  async function handleSubmit(e) {
     e.preventDefault();
     const trimmed = email.trim().toLowerCase();
-    if (isAllowed(trimmed)) {
-      localStorage.setItem(STORAGE_KEY, trimmed);
-      setAuthed(trimmed);
-    } else {
+    if (!isAllowed(trimmed)) {
       setBlocked(true);
+      return;
     }
+    setVerifying(true);
+    try {
+      const rec = await getOrCreateUser(trimmed);
+      setUserRole(rec?.role || fallbackRole(trimmed));
+    } catch {
+      setUserRole(fallbackRole(trimmed));
+    }
+    localStorage.setItem(STORAGE_KEY, trimmed);
+    setVerifying(false);
+    setAuthed(trimmed);
   }
 
   function handleSignOut() {
@@ -34,11 +58,13 @@ export default function AuthGate({ children }) {
     setAuthed(null);
     setEmail('');
     setBlocked(false);
+    setUserRole('user');
   }
 
   // ── Autenticato ───────────────────────────────────────────────────────────
   if (authed) {
-    const editor = isEditor(authed);
+    const editor = ['super_admin', 'editor'].includes(userRole);
+    const isSuperAdmin = userRole === 'super_admin';
     return (
       <div>
         <div style={{
@@ -48,7 +74,7 @@ export default function AuthGate({ children }) {
         }}>
           {editor && (
             <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.gold }}>
-              Editor
+              {isSuperAdmin ? 'Super Admin' : 'Editor'}
             </span>
           )}
           <span style={{ fontFamily: fontMono, fontSize: 10, color: T.muted }}>{authed}</span>
@@ -58,8 +84,9 @@ export default function AuthGate({ children }) {
             borderRadius: 2, padding: '3px 10px', cursor: 'pointer',
           }}>Esci</button>
         </div>
-        {/* Passa isEditor come prop a tutti i children tramite cloneElement */}
-        {typeof children === 'function' ? children({ userEmail: authed, isEditor: editor }) : children}
+        {typeof children === 'function'
+          ? children({ userEmail: authed, userRole, isEditor: editor, isSuperAdmin })
+          : children}
       </div>
     );
   }
@@ -111,16 +138,16 @@ export default function AuthGate({ children }) {
                 />
                 <button
                   type="submit"
-                  disabled={!email}
+                  disabled={!email || verifying}
                   style={{
                     width: '100%', padding: '11px 0',
                     background: T.ink, color: '#fff',
-                    border: 'none', borderRadius: 2, cursor: 'pointer',
+                    border: 'none', borderRadius: 2, cursor: verifying ? 'wait' : 'pointer',
                     fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
-                    fontWeight: 700,
+                    fontWeight: 700, opacity: verifying ? 0.7 : 1,
                   }}
                 >
-                  Accedi →
+                  {verifying ? 'Verifica accesso…' : 'Accedi →'}
                 </button>
               </form>
             </>

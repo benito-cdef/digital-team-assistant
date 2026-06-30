@@ -6,7 +6,9 @@ import AuthGate from './components/AuthGate.jsx'
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthGate>
-      {({ userEmail, isEditor }) => <App userEmail={userEmail} isEditor={isEditor} />}
+      {({ userEmail, userRole, isEditor, isSuperAdmin }) => (
+        <App userEmail={userEmail} userRole={userRole} isEditor={isEditor} isSuperAdmin={isSuperAdmin} />
+      )}
     </AuthGate>
   </StrictMode>,
 )
