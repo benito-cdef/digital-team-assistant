@@ -267,11 +267,76 @@ function KpiRow({ label, value, delta, positive }) {
   );
 }
 
+// ── Confronto anno precedente ─────────────────────────────
+function CompRow({ label, value }) {
+  return (
+    <div style={{ display: 'flex', gap: 0, padding: '4px 14px', alignItems: 'flex-start' }}>
+      <div style={{ minWidth: 120, fontFamily: fontBody, fontSize: 11, color: T.muted, paddingTop: 3, flexShrink: 0 }}>{label}</div>
+      <div style={{ fontFamily: fontBody, fontSize: 12, color: T.ink2, padding: '3px 6px', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        {value || <span style={{ opacity: 0.25, fontStyle: 'italic' }}>—</span>}
+      </div>
+    </div>
+  );
+}
+
+function CompBlock({ title, children }) {
+  return (
+    <div style={{ background: '#F7F5EF', border: `1px solid ${T.line}`, borderRadius: 4, overflow: 'hidden', opacity: 0.92 }}>
+      <div style={{ padding: '9px 14px 7px', borderBottom: `1px solid ${T.line}`, background: '#EFEDE7' }}>
+        <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>{title}</span>
+      </div>
+      <div style={{ paddingBottom: 6 }}>{children}</div>
+    </div>
+  );
+}
+
+function ComparisonColumn({ comparisonWeek: cw, planYear }) {
+  const prevYear = planYear - 1;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Header */}
+      <div style={{ background: '#EFEDE7', border: `1px solid ${T.line}`, borderRadius: 4, padding: '16px 16px 14px' }}>
+        <div style={{ fontFamily: fontMono, fontSize: 10, color: T.muted, marginBottom: 3 }}>Confronto</div>
+        <div style={{ fontFamily: fontTitle, fontSize: 22, fontWeight: 700, color: T.muted, letterSpacing: '-0.02em', lineHeight: 1 }}>
+          W{cw.week} · {prevYear}
+        </div>
+        <div style={{ fontFamily: fontMono, fontSize: 10, color: T.muted, marginTop: 4 }}>
+          {cw.weekdays || ''}
+        </div>
+      </div>
+
+      <CompBlock title="Contesto anno prec.">
+        <CompRow label="Last Year" value={cw.context?.lastYear} />
+        <CompRow label="Topic" value={cw.context?.weekTopic} />
+      </CompBlock>
+
+      <CompBlock title={`Brand Calendar ${prevYear}`}>
+        {[
+          { k: 'mainCampaign', l: '① Main Campaign' },
+          { k: 'commercial',   l: '② Commercial' },
+          { k: 'opportunity',  l: '③ Opportunity' },
+          { k: 'corporate',    l: '④ Corporate' },
+          { k: 'regional',     l: '⑤ Regional' },
+        ].map(({ k, l }) => <CompRow key={k} label={l} value={cw.brand?.[k]} />)}
+      </CompBlock>
+
+      <CompBlock title={`Marketing ${prevYear}`}>
+        <CompRow label="Mar · WW"   value={cw.marketing?.tuesday?.ww} />
+        <CompRow label="Mer · Best" value={cw.marketing?.wednesday?.topic} />
+        <CompRow label="Gio · Topic" value={cw.marketing?.thursday?.topic} />
+        <CompRow label="Ven · WS"   value={cw.marketing?.friday?.topic} />
+        <CompRow label="Ven · App"  value={cw.marketing?.friday?.appTopic} />
+        <CompRow label="Sab · Topic" value={cw.marketing?.saturday?.topic} />
+      </CompBlock>
+    </div>
+  );
+}
+
 // ── Main view ──────────────────────────────────────────────
 
-export default function PianoView({ plan, onChange, initialWeekParam, onWeekChange, isEditor, userEmail, selectedYear, setSelectedYear, availableYears = [] }) {
+export default function PianoView({ plan, comparisonPlan, onChange, initialWeekParam, onWeekChange, isEditor, userEmail, planYear }) {
   const { weeks } = plan;
-  const planYear = plan.year ?? selectedYear;
+  const resolvedPlanYear = planYear ?? plan.year ?? plan.isoYear ?? new Date().getFullYear();
 
   // Resolve initial week index from URL param (e.g. "W24")
   const initialIdx = useMemo(() => {
@@ -337,23 +402,8 @@ export default function PianoView({ plan, onChange, initialWeekParam, onWeekChan
           }}>{m === 'detail' ? 'Dettaglio settimana' : 'Panoramica mesi'}</button>
         ))}
 
-        {/* Year switcher */}
-        {availableYears.length > 1 && setSelectedYear && (
-          <select
-            value={selectedYear}
-            onChange={e => setSelectedYear(parseInt(e.target.value))}
-            style={{
-              padding: '5px 10px', borderRadius: 2, background: T.surface, color: T.ink,
-              border: `1px solid ${T.line}`, cursor: 'pointer',
-              fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em',
-            }}
-          >
-            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-        )}
-
         {/* Export button */}
-        <ExportButton plan={plan} year={planYear} />
+        <ExportButton plan={plan} year={resolvedPlanYear} />
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {months.map(({ m, label }) => (
@@ -379,7 +429,8 @@ export default function PianoView({ plan, onChange, initialWeekParam, onWeekChan
           onBlockSave={(section, draft) => handleBlockSave(weekIdx, section, draft)}
           onChange={onChange}
           canEdit={!!isEditor}
-          planYear={planYear}
+          planYear={resolvedPlanYear}
+          comparisonWeek={comparisonPlan?.weeks?.find(w => w.week === cur.week) ?? null}
         />
       ) : (
         <OverviewMode weeks={weeks} onSelect={i => { setWeekIdx(i); setViewMode('detail'); }} />
@@ -390,7 +441,7 @@ export default function PianoView({ plan, onChange, initialWeekParam, onWeekChan
 
 // ── Detail view ────────────────────────────────────────────
 
-function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChange, canEdit, planYear }) {
+function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChange, canEdit, planYear, comparisonWeek }) {
   const hasPerf = cur.performance.ecomLY !== null || cur.performance.ecomActual !== null;
   const monthName = MONTHS_IT[date.getMonth()];
   const [showHistory, setShowHistory] = useState(false);
@@ -410,7 +461,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
   useEffect(() => { setShowHistory(false); }, [cur.week]);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: comparisonWeek ? '1fr 1fr 1fr' : '1fr 1fr', gap: 14 }}>
 
       {/* LEFT */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -551,7 +602,12 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
         )}
       </div>
 
-      {/* RIGHT */}
+      {/* CONFRONTO ANNO PRECEDENTE — colonna destra opzionale */}
+      {comparisonWeek && (
+        <ComparisonColumn comparisonWeek={comparisonWeek} planYear={planYear} />
+      )}
+
+      {/* RIGHT — marketing (spostato su colonna propria se c'è confronto) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Tuesday */}

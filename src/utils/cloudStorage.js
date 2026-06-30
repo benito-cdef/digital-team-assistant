@@ -1,11 +1,10 @@
 /**
- * Salva e carica i dati su Supabase Storage (bucket pubblico).
- * Tutti i file sono public in lettura → condivisi tra tutti gli utenti.
- * La scrittura è permessa tramite anon key (controllo editor nel frontend).
+ * Supabase Storage — bucket 'calendar-data'
  *
- * Files nel bucket 'calendar-data':
- *   plan_{year}.json → dati Piano per anno (es. plan_2026.json)
- *   calendars.json   → attività commerciali e brand (per Calendario, Report, YoY)
+ * Files:
+ *   plans.json          → manifest di tutti i piani (nome libero, isoYear, filename)
+ *   plan_*.json         → dati Piano per ogni calendario
+ *   calendars.json      → attività commerciali e brand
  */
 
 const SUPABASE_URL  = 'https://xnekmhtmapkxzcrdzhoh.supabase.co';
@@ -25,81 +24,146 @@ async function cloudLoad(fileName) {
 
 async function cloudSave(fileName, data) {
   const url = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`;
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SUPABASE_ANON}`,
-      'x-upsert': 'true',
-    },
-    body: JSON.stringify(data),
-  });
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${SUPABASE_ANON}`,
+    'x-upsert': 'true',
+  };
+  const body = JSON.stringify(data);
+  let res = await fetch(url, { method: 'PUT', headers, body });
   if (!res.ok) {
-    // Se PUT fallisce (file non esiste ancora) prova POST
-    const res2 = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON}`,
-        'x-upsert': 'true',
-      },
-      body: JSON.stringify(data),
-    });
-    if (!res2.ok) throw new Error(await res2.text());
+    res = await fetch(url, { method: 'POST', headers, body });
+    if (!res.ok) throw new Error(await res.text());
   }
   return true;
 }
 
-// ── Migrazione legacy plan.json → plan_2026.json ──────────────────────────
-// Se plan_2026.json non esiste ma plan.json sì, copia il contenuto una volta.
-let migrationDone = false;
-async function migrateLegacyPlan() {
-  if (migrationDone) return;
-  migrationDone = true;
+// ── Slug da nome libero ───────────────────────────────────────────────────
+function slugify(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `plan_${Date.now()}`;
+}
+
+// Rileva anno ISO da stringa (es. "FY27" → 2027, "Piano 2026 Draft" → 2026)
+export function detectISOYear(name) {
+  // 4 cifre (2020-2099)
+  const m4 = name.match(/\b(20[2-9]\d)\b/);
+  if (m4) return parseInt(m4[1]);
+  // 2 cifre dopo FY/AY/YY ecc (FY27 → 2027)
+  const m2 = name.match(/[A-Za-z]{0,2}(\d{2})\b/);
+  if (m2) { const y = parseInt(m2[1]); if (y >= 20 && y <= 99) return 2000 + y; }
+  return null;
+}
+
+// ── Manifest plans.json ───────────────────────────────────────────────────
+
+export const loadPlansManifest = () => cloudLoad('plans.json');
+export const savePlansManifest = (plans) => cloudSave('plans.json', plans);
+
+// Elenca plan_NNNN.json esistenti nel bucket (fallback quando non c'è manifest)
+async function detectLegacyPlans() {
   try {
-    const existing2026 = await cloudLoad('plan_2026.json');
-    if (existing2026) return; // già migrato
-    const legacy = await cloudLoad('plan.json');
-    if (legacy) {
-      await cloudSave('plan_2026.json', legacy);
-    }
-  } catch (e) {
-    console.error('Legacy plan migration error:', e);
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${BUCKET}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
+      body: JSON.stringify({ prefix: '', limit: 1000, sortBy: { column: 'name', order: 'asc' } }),
+    });
+    if (!res.ok) return [];
+    const files = await res.json();
+    return files
+      .map(f => { const m = (f.name || '').match(/^plan_(\d{4})\.json$/); return m ? parseInt(m[1]) : null; })
+      .filter(Boolean)
+      .sort((a, b) => a - b)
+      .map(year => ({
+        id: `plan_${year}`,
+        name: String(year),
+        filename: `plan_${year}.json`,
+        isoYear: year,
+        description: '',
+        createdAt: new Date().toISOString(),
+      }));
+  } catch {
+    return [];
   }
 }
 
-// ── Piano per anno ────────────────────────────────────────────────────────
+// Carica manifest oppure lo inizializza dai file esistenti
+let manifestCache = null;
+export async function getOrInitPlansManifest() {
+  if (manifestCache) return manifestCache;
+  const existing = await loadPlansManifest();
+  if (existing && Array.isArray(existing) && existing.length > 0) {
+    manifestCache = existing;
+    return existing;
+  }
+  // Crea manifest dai file legacy
+  const legacy = await detectLegacyPlans();
+  if (legacy.length > 0) {
+    await savePlansManifest(legacy);
+    manifestCache = legacy;
+    return legacy;
+  }
+  return [];
+}
+
+export function clearManifestCache() { manifestCache = null; }
+
+// ── Operazioni sui piani ──────────────────────────────────────────────────
+
+export const loadPlanFile     = (filename) => cloudLoad(filename);
+export const savePlanFile     = (filename, data) => cloudSave(filename, data);
+
+// Crea un nuovo piano nel bucket + aggiorna il manifest
+export async function createNewPlan({ name, isoYear, description, weeks }) {
+  const id  = slugify(name);
+  // Evita collisioni: se id esiste già nel manifest, aggiungi suffisso
+  const manifest = await getOrInitPlansManifest();
+  const exists = manifest.find(p => p.id === id);
+  const finalId  = exists ? `${id}_${Date.now()}` : id;
+  const filename = `plan_${finalId}.json`;
+
+  const planData = {
+    name, isoYear, filename, description: description || '',
+    weeks, createdAt: new Date().toISOString(),
+  };
+
+  await cloudSave(filename, planData);
+
+  const record = { id: finalId, name, filename, isoYear, description: description || '', createdAt: planData.createdAt };
+  const updated = manifest.filter(p => p.id !== finalId).concat(record).sort((a, b) => (a.isoYear || 0) - (b.isoYear || 0));
+  await savePlansManifest(updated);
+  manifestCache = updated;
+
+  return record;
+}
+
+// Aggiorna la voce nel manifest (es. dopo rename futuro)
+export async function updatePlanManifestEntry(id, changes) {
+  const manifest = await getOrInitPlansManifest();
+  const updated = manifest.map(p => p.id === id ? { ...p, ...changes } : p);
+  await savePlansManifest(updated);
+  manifestCache = updated;
+}
+
+// ── Migrazione legacy plan.json → plan_2026.json (one-time) ──────────────
+let migrationDone = false;
+export async function migrateLegacyPlan() {
+  if (migrationDone) return;
+  migrationDone = true;
+  try {
+    const existing = await cloudLoad('plan_2026.json');
+    if (existing) return;
+    const legacy = await cloudLoad('plan.json');
+    if (legacy) await cloudSave('plan_2026.json', legacy);
+  } catch { /* non bloccante */ }
+}
+
+// ── Backwards compat (usato da vecchi percorsi) ───────────────────────────
 export async function loadPlanFromCloud(year) {
   await migrateLegacyPlan();
   return cloudLoad(`plan_${year}.json`);
 }
 export const savePlanToCloud = (year, data) => cloudSave(`plan_${year}.json`, data);
 
-// ── Lista anni con piano disponibile ──────────────────────────────────────
-export async function listAvailablePlanYears() {
-  try {
-    const url = `${SUPABASE_URL}/storage/v1/object/list/${BUCKET}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON}`,
-      },
-      body: JSON.stringify({ prefix: '', limit: 1000, sortBy: { column: 'name', order: 'asc' } }),
-    });
-    if (!res.ok) return [];
-    const files = await res.json();
-    const years = [];
-    for (const f of files) {
-      const m = (f.name || '').match(/^plan_(\d{4})\.json$/);
-      if (m) years.push(parseInt(m[1]));
-    }
-    return years.sort((a, b) => a - b);
-  } catch {
-    return [];
-  }
-}
-
-// ── Calendari (attività per Calendario / Report / YoY) ───────────────────
-export const loadCalendarsFromCloud  = () => cloudLoad('calendars.json');
-export const saveCalendarsToCloud    = (data) => cloudSave('calendars.json', data);
+// ── Calendari ─────────────────────────────────────────────────────────────
+export const loadCalendarsFromCloud = () => cloudLoad('calendars.json');
+export const saveCalendarsToCloud   = (data) => cloudSave('calendars.json', data);

@@ -3,9 +3,10 @@ import { T } from './tokens.js';
 import { loadAll, saveCalendar, KEYS } from './utils/storage.js';
 import { parseHash, pushHash } from './utils/router.js';
 import {
-  loadPlanFromCloud, savePlanToCloud,
+  getOrInitPlansManifest, clearManifestCache,
+  loadPlanFile, savePlanFile,
   loadCalendarsFromCloud, saveCalendarsToCloud,
-  listAvailablePlanYears,
+  createNewPlan,
 } from './utils/cloudStorage.js';
 import { logPlanChange } from './utils/db.js';
 import { getCurrentISOYear } from './utils/isoWeek.js';
@@ -17,17 +18,16 @@ import YoYView from './views/YoYView.jsx';
 import PianoView from './views/PianoView.jsx';
 import SettingsView from './views/SettingsView.jsx';
 
-const PLAN_KEY = 'dta:plan';
+const PLAN_LS = 'dta:plan';
 
-function planLocalKey(year) { return `${PLAN_KEY}:${year}`; }
-
-function loadPlanLocal(year) {
-  try { const r = localStorage.getItem(planLocalKey(year)); return r ? JSON.parse(r) : null; } catch { return null; }
+function planLocalKey(id) { return `${PLAN_LS}:${id}`; }
+function loadPlanLocal(id) {
+  try { const r = localStorage.getItem(planLocalKey(id)); return r ? JSON.parse(r) : null; } catch { return null; }
 }
-function savePlanLocal(year, p) {
+function savePlanLocal(id, p) {
   try {
-    localStorage.setItem(planLocalKey(year), JSON.stringify(p));
-    localStorage.setItem(planLocalKey(year) + ':ts', new Date().toISOString());
+    localStorage.setItem(planLocalKey(id), JSON.stringify(p));
+    localStorage.setItem(planLocalKey(id) + ':ts', new Date().toISOString());
   } catch { /* quota */ }
 }
 
@@ -74,15 +74,16 @@ function calendarsFromCloud(data) {
 }
 
 export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
-  const [route, setRoute]         = useState(parseHash());
-  const [selectedYear, setSelectedYear] = useState(getCurrentISOYear());
-  const [calendars, setCalendars] = useState(loadAll());
-  const [plan, setPlan]           = useState(() => loadPlanLocal(getCurrentISOYear()));
-  const [availableYears, setAvailableYears] = useState([]);
+  const [route, setRoute]           = useState(parseHash());
+  const [calendars, setCalendars]   = useState(loadAll());
+  const [plan, setPlan]             = useState(null);
+  const [comparisonPlan, setComparisonPlan] = useState(null); // piano anno precedente per confronto
+  const [availablePlans, setAvailablePlans] = useState([]);   // manifest
+  const [selectedPlan, setSelectedPlan]     = useState(null); // record dal manifest
   const [cloudLoading, setCloudLoading] = useState(true);
   const [cloudSaving,  setCloudSaving]  = useState(false);
 
-  // ── Carica calendari + lista anni una volta ───────────────────────────────
+  // ── Carica manifest + calendari al mount ──────────────────────────────────
   useEffect(() => {
     loadCalendarsFromCloud().then(cloudCals => {
       if (cloudCals) {
@@ -95,27 +96,43 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
       }
     }).catch(console.error);
 
-    listAvailablePlanYears().then(years => {
-      if (years && years.length) setAvailableYears(years);
-      else setAvailableYears([getCurrentISOYear()]);
-    }).catch(() => setAvailableYears([getCurrentISOYear()]));
+    getOrInitPlansManifest().then(plans => {
+      setAvailablePlans(plans);
+      // Seleziona il piano dell'anno corrente di default; altrimenti il più recente
+      const currentYear = getCurrentISOYear();
+      const defaultPlan = plans.find(p => p.isoYear === currentYear) || plans[plans.length - 1] || null;
+      setSelectedPlan(defaultPlan);
+    }).catch(() => {});
   }, []);
 
-  // ── Carica piano per anno selezionato ─────────────────────────────────────
+  // ── Carica piano selezionato + piano confronto (anno precedente) ──────────
   useEffect(() => {
+    if (!selectedPlan) return;
     setCloudLoading(true);
-    const local = loadPlanLocal(selectedYear);
+    setComparisonPlan(null);
+
+    const local = loadPlanLocal(selectedPlan.id);
     if (local) setPlan(local);
-    loadPlanFromCloud(selectedYear).then(cloudPlan => {
+
+    loadPlanFile(selectedPlan.filename).then(cloudPlan => {
       if (cloudPlan) {
         setPlan(cloudPlan);
-        savePlanLocal(selectedYear, cloudPlan);
+        savePlanLocal(selectedPlan.id, cloudPlan);
       } else if (!local) {
         setPlan(null);
       }
       setCloudLoading(false);
     }).catch(() => setCloudLoading(false));
-  }, [selectedYear]);
+
+    // Piano confronto: cerca piano con isoYear = selectedPlan.isoYear - 1
+    if (selectedPlan.isoYear) {
+      const prevYear = selectedPlan.isoYear - 1;
+      const prevRecord = availablePlans.find(p => p.isoYear === prevYear);
+      if (prevRecord) {
+        loadPlanFile(prevRecord.filename).then(setComparisonPlan).catch(() => {});
+      }
+    }
+  }, [selectedPlan]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Hash routing ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -130,68 +147,74 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
   function refresh() {
     const updated = loadAll();
     setCalendars(updated);
-    if (isEditor) {
-      saveCalendarsToCloud(updated).catch(console.error);
-    }
+    if (isEditor) saveCalendarsToCloud(updated).catch(console.error);
   }
 
-  // ── Salva piano — solo editor ─────────────────────────────────────────────
+  // ── Salva piano da upload ─────────────────────────────────────────────────
   async function handlePlanReady(p) {
+    if (!selectedPlan) return;
     setPlan(p);
-    savePlanLocal(selectedYear, p);
+    savePlanLocal(selectedPlan.id, p);
     if (isEditor) {
       setCloudSaving(true);
-      try { await savePlanToCloud(selectedYear, p); } catch (e) { console.error('Cloud save plan', e); }
+      try { await savePlanFile(selectedPlan.filename, p); } catch (e) { console.error(e); }
       setCloudSaving(false);
     }
   }
 
-  // ── Modifica inline Piano view + audit trail ──────────────────────────────
+  // ── Modifica inline + audit trail ─────────────────────────────────────────
   const handlePlanChange = useCallback((weekIdx, path, val) => {
+    if (!selectedPlan) return;
     setPlan(prev => {
       if (!prev) return prev;
       const weeks = [...prev.weeks];
       const week = weeks[weekIdx];
+      const planYear = selectedPlan.isoYear ?? prev.year ?? getCurrentISOYear();
 
-      // Audit log: confronta vecchio vs nuovo
       try {
         if (val && typeof val === 'object' && !Array.isArray(val)) {
-          // merge object — confronta ogni sotto-campo
           Object.entries(val).forEach(([k, v]) => {
             const oldV = getPath(week, `${path}.${k}`);
-            if (JSON.stringify(oldV ?? null) !== JSON.stringify(v ?? null)) {
-              logPlanChange({ weekNumber: week.week, year: prev.year ?? selectedYear, fieldPath: `${path}.${k}`, oldValue: oldV, newValue: v, changedBy: userEmail });
-            }
+            if (JSON.stringify(oldV ?? null) !== JSON.stringify(v ?? null))
+              logPlanChange({ weekNumber: week.week, year: planYear, fieldPath: `${path}.${k}`, oldValue: oldV, newValue: v, changedBy: userEmail });
           });
         } else {
           const oldV = getPath(week, path);
-          if (JSON.stringify(oldV ?? null) !== JSON.stringify(val ?? null)) {
-            logPlanChange({ weekNumber: week.week, year: prev.year ?? selectedYear, fieldPath: path, oldValue: oldV, newValue: val, changedBy: userEmail });
-          }
+          if (JSON.stringify(oldV ?? null) !== JSON.stringify(val ?? null))
+            logPlanChange({ weekNumber: week.week, year: planYear, fieldPath: path, oldValue: oldV, newValue: val, changedBy: userEmail });
         }
       } catch (e) { console.error('audit', e); }
 
       weeks[weekIdx] = setPath(week, path, val);
       const next = { ...prev, weeks };
-      savePlanLocal(selectedYear, next);
-      if (isEditor) savePlanToCloud(selectedYear, next).catch(console.error);
+      savePlanLocal(selectedPlan.id, next);
+      if (isEditor) savePlanFile(selectedPlan.filename, next).catch(console.error);
       return next;
     });
-  }, [isEditor, selectedYear, userEmail]);
+  }, [isEditor, selectedPlan, userEmail]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Crea un nuovo piano (es. nuovo anno) e aggiorna lista anni
-  async function handleCreatePlan(year, newPlan) {
-    savePlanLocal(year, newPlan);
-    try { await savePlanToCloud(year, newPlan); } catch (e) { console.error(e); }
-    setAvailableYears(prev => prev.includes(year) ? prev : [...prev, year].sort((a, b) => a - b));
+  // Crea nuovo piano (da Settings modal) e aggiorna manifest
+  async function handleCreatePlan({ name, isoYear, description, weeks }) {
+    const record = await createNewPlan({ name, isoYear, description, weeks });
+    clearManifestCache();
+    const updatedManifest = await getOrInitPlansManifest();
+    setAvailablePlans(updatedManifest);
+    setSelectedPlan(record);
+    return record;
   }
 
   const { view, param } = route;
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  const planYear = selectedPlan?.isoYear ?? getCurrentISOYear();
+
   return (
     <div style={{ minHeight: '100vh', background: T.bg }}>
-      <Header view={view} onView={v => navigate(v)} hasPlan={!!plan} isSuperAdmin={isSuperAdmin} />
+      <Header
+        view={view} onView={v => navigate(v)} hasPlan={!!plan} isSuperAdmin={isSuperAdmin}
+        availablePlans={availablePlans} selectedPlan={selectedPlan}
+        onSelectPlan={p => { setSelectedPlan(p); navigate('piano'); }}
+      />
 
       {cloudSaving && (
         <div style={{
@@ -242,7 +265,7 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
             onCalendarChange={refresh}
             onPlanReady={handlePlanReady}
             plan={plan}
-            availableYears={availableYears}
+            availablePlans={availablePlans}
             onCreatePlan={handleCreatePlan}
           />
         )}
@@ -250,20 +273,19 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
         {view === 'piano' && plan && (
           <PianoView
             plan={plan}
+            comparisonPlan={comparisonPlan}
             onChange={handlePlanChange}
             initialWeekParam={param}
             onWeekChange={weekNum => navigate('piano', `W${weekNum}`)}
             isEditor={isEditor}
             userEmail={userEmail}
-            selectedYear={selectedYear}
-            setSelectedYear={setSelectedYear}
-            availableYears={availableYears}
+            planYear={planYear}
           />
         )}
         {view === 'piano' && !plan && !cloudLoading && (
           <div style={{ padding: 48, textAlign: 'center' }}>
             <p style={{ fontFamily: "'Arial Narrow', Arial", fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9A9791' }}>
-              Nessun piano disponibile per l'anno {selectedYear}
+              {selectedPlan ? `Nessun dato per "${selectedPlan.name}"` : 'Nessun piano selezionato'}
             </p>
             {isEditor && (
               <button onClick={() => navigate('settings')} style={{

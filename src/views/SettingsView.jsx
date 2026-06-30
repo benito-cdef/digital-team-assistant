@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
 import { getAllUsers, updateUserRole, upsertUser, deleteUser } from '../utils/db.js';
 import { getCurrentISOYear, getWeeksInYear, weekToMonday, formatWeekRangeLong } from '../utils/isoWeek.js';
+import { detectISOYear } from '../utils/cloudStorage.js';
 import { KEYS, saveCalendar, removeCalendar } from '../utils/storage.js';
 import UploadSlot from '../components/UploadSlot.jsx';
 
@@ -247,97 +248,145 @@ function CondividiSection() {
   );
 }
 
-// ── Sezione Nuovo Anno ────────────────────────────────────────────────────
-function NuovoAnnoSection({ availableYears, onCreatePlan }) {
+// ── Modal crea nuovo calendario ───────────────────────────────────────────
+function NuovoCalendarioModal({ onClose, onCreatePlan, availablePlans }) {
   const currentYear = getCurrentISOYear();
-  const [year, setYear] = useState(currentYear + 1);
-  const [desc, setDesc] = useState('');
+  const [name, setName]       = useState('');
+  const [isoYear, setIsoYear] = useState('');
+  const [desc, setDesc]       = useState('');
   const [creating, setCreating] = useState(false);
-  const [done, setDone] = useState(false);
+  const [error, setError]     = useState('');
+
+  // Auto-rileva anno dal nome
+  function handleNameChange(v) {
+    setName(v);
+    const detected = detectISOYear(v);
+    if (detected) setIsoYear(String(detected));
+  }
 
   async function handleCreate(e) {
     e.preventDefault();
-    if (availableYears.includes(year)) {
-      if (!confirm(`Il piano ${year} esiste già. Sovrascrivere?`)) return;
-    }
+    const trimName = name.trim();
+    if (!trimName) { setError('Il nome è obbligatorio.'); return; }
+    const yearNum = parseInt(isoYear);
+    if (!yearNum || yearNum < 2000 || yearNum > 2099) { setError('Inserisci un anno ISO valido (es. 2027).'); return; }
+
+    const duplicate = availablePlans.find(p => p.name.toLowerCase() === trimName.toLowerCase());
+    if (duplicate && !confirm(`Esiste già un piano con questo nome. Continuare?`)) return;
+
     setCreating(true);
-    const weeks = [];
-    const totalWeeks = getWeeksInYear(year);
-    for (let w = 1; w <= totalWeeks; w++) {
-      weeks.push({
-        week: w, year,
-        date: weekToMonday(year, w).toISOString(),
-        quarter: '', month: '',
-        weekdays: formatWeekRangeLong(year, w),
-        commercial: '', brandPush: '',
-        performance: { ecomLY: null, ecomBudget: null, ecomDeltaBdg: null, ecomActual: null, ecomDeltaAct: null, rtlLY: null, rtlBudget: null },
-        context: { lastYear: '', weekTopic: '' },
-        brand: { mainCampaign: '', commercial: '', opportunity: '', corporate: '', regional: '' },
-        marketing: {
-          tuesday:   { ww: '', note: '', skuCode: '', image: '' },
-          wednesday: { topic: '', eu: '', us: '', kr: '' },
-          thursday:  { topic: '', eu: '', us: '', kr: '' },
-          friday:    { topic: '', eu: '', us: '', kr: '', appTopic: '', productCode: '', appImage: '' },
-          saturday:  { topic: '', skuCode: '', note: '' },
-        },
-        strategyLinks: [],
-      });
+    setError('');
+    try {
+      const totalWeeks = getWeeksInYear(yearNum);
+      const weeks = [];
+      for (let w = 1; w <= totalWeeks; w++) {
+        weeks.push({
+          week: w, year: yearNum,
+          date: weekToMonday(yearNum, w).toISOString(),
+          quarter: '', month: '',
+          weekdays: formatWeekRangeLong(yearNum, w),
+          commercial: '', brandPush: '',
+          performance: { ecomLY: null, ecomBudget: null, ecomDeltaBdg: null, ecomActual: null, ecomDeltaAct: null, rtlLY: null, rtlBudget: null },
+          context: { lastYear: '', weekTopic: '' },
+          brand: { mainCampaign: '', commercial: '', opportunity: '', corporate: '', regional: '' },
+          marketing: {
+            tuesday:   { ww: '', note: '', skuCode: '', image: '' },
+            wednesday: { topic: '', eu: '', us: '', kr: '' },
+            thursday:  { topic: '', eu: '', us: '', kr: '' },
+            friday:    { topic: '', eu: '', us: '', kr: '', appTopic: '', productCode: '', appImage: '' },
+            saturday:  { topic: '', skuCode: '', note: '' },
+          },
+          strategyLinks: [],
+        });
+      }
+      await onCreatePlan({ name: trimName, isoYear: yearNum, description: desc, weeks });
+      onClose();
+    } catch (err) {
+      setError('Errore durante la creazione. Riprova.');
+      console.error(err);
     }
-    const newPlan = { year, filename: `Nuovo calendario ${year}`, description: desc, weeks, createdAt: new Date().toISOString() };
-    await onCreatePlan(year, newPlan);
     setCreating(false);
-    setDone(true);
-    setTimeout(() => setDone(false), 3000);
   }
 
+  const inputStyle = {
+    fontFamily: fontBody, fontSize: 13, color: T.ink,
+    border: `1px solid ${T.line}`, borderRadius: 2, padding: '9px 12px',
+    background: T.surface, outline: 'none', width: '100%', boxSizing: 'border-box',
+  };
+
   return (
-    <div>
-      <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted, margin: '0 0 20px', lineHeight: 1.6 }}>
-        Genera un nuovo piano annuale vuoto. Le settimane vengono create automaticamente (ISO 8601).
-        {availableYears.length > 0 && ` Anni esistenti: ${availableYears.join(', ')}.`}
-      </p>
-      <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 400 }}>
-        <div>
-          <label style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 6 }}>
-            Anno
-          </label>
-          <input type="number" required min={currentYear} max={currentYear + 10}
-            value={year} onChange={e => setYear(parseInt(e.target.value))}
-            style={{
-              fontFamily: fontBody, fontSize: 14, color: T.ink,
-              border: `1px solid ${T.line}`, borderRadius: 2, padding: '9px 12px',
-              background: T.surface, outline: 'none', width: 120,
-            }}
-            onFocus={e => e.target.style.borderColor = T.gold}
-            onBlur={e => e.target.style.borderColor = T.line}
-          />
-        </div>
-        <div>
-          <label style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 6 }}>
-            Descrizione (opzionale)
-          </label>
-          <input type="text" value={desc} onChange={e => setDesc(e.target.value)}
-            placeholder={`Piano editoriale ${year}`}
-            style={{
-              fontFamily: fontBody, fontSize: 13, color: T.ink,
-              border: `1px solid ${T.line}`, borderRadius: 2, padding: '9px 12px',
-              background: T.surface, outline: 'none', width: '100%',
-            }}
-            onFocus={e => e.target.style.borderColor = T.gold}
-            onBlur={e => e.target.style.borderColor = T.line}
-          />
-        </div>
-        <div>
-          <button type="submit" disabled={creating} style={{
-            fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
-            background: done ? T.green : T.ink, color: '#fff', border: 'none', borderRadius: 2,
-            padding: '10px 24px', cursor: creating ? 'wait' : 'pointer', fontWeight: 700,
-            opacity: creating ? 0.7 : 1, transition: 'background 0.2s',
-          }}>
-            {creating ? 'Creazione in corso…' : done ? '✓ Creato!' : `Crea piano ${year}`}
-          </button>
-        </div>
-      </form>
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(14,14,14,0.55)', zIndex: 500,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        background: T.surface, border: `1px solid ${T.line}`, borderRadius: 6,
+        width: '100%', maxWidth: 460, padding: 32, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+      }}>
+        <h2 style={{ fontFamily: fontTitle, fontSize: 14, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink, margin: '0 0 24px' }}>
+          Crea nuovo calendario
+        </h2>
+
+        <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 6 }}>
+              Nome *
+            </label>
+            <input type="text" required value={name} onChange={e => handleNameChange(e.target.value)}
+              placeholder='Es. "2027", "FY27", "Piano 2027 Draft"'
+              style={inputStyle}
+              onFocus={e => e.target.style.borderColor = T.gold}
+              onBlur={e => e.target.style.borderColor = T.line}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 6 }}>
+              Anno ISO (per calcolo settimane) *
+            </label>
+            <input type="number" required min={currentYear} max={currentYear + 10}
+              value={isoYear} onChange={e => setIsoYear(e.target.value)}
+              placeholder={String(currentYear + 1)}
+              style={{ ...inputStyle, width: 140 }}
+              onFocus={e => e.target.style.borderColor = T.gold}
+              onBlur={e => e.target.style.borderColor = T.line}
+            />
+            <p style={{ fontFamily: fontBody, fontSize: 11, color: T.muted, margin: '4px 0 0' }}>
+              Determina quante settimane ha l'anno e le date corrispondenti.
+            </p>
+          </div>
+
+          <div>
+            <label style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 6 }}>
+              Descrizione (opzionale)
+            </label>
+            <input type="text" value={desc} onChange={e => setDesc(e.target.value)}
+              placeholder="Note sul calendario…"
+              style={inputStyle}
+              onFocus={e => e.target.style.borderColor = T.gold}
+              onBlur={e => e.target.style.borderColor = T.line}
+            />
+          </div>
+
+          {error && <p style={{ fontFamily: fontBody, fontSize: 12, color: T.alert, margin: 0 }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button type="submit" disabled={creating} style={{
+              fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+              background: T.ink, color: '#fff', border: 'none', borderRadius: 2,
+              padding: '10px 24px', cursor: creating ? 'wait' : 'pointer', fontWeight: 700,
+              opacity: creating ? 0.7 : 1,
+            }}>
+              {creating ? 'Creazione in corso…' : 'Crea calendario'}
+            </button>
+            <button type="button" onClick={onClose} style={{
+              fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: T.muted, background: 'transparent', border: `1px solid ${T.line}`,
+              borderRadius: 2, padding: '10px 18px', cursor: 'pointer',
+            }}>Annulla</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
@@ -360,8 +409,10 @@ function Section({ title, children }) {
 export default function SettingsView({
   userEmail, isEditor, isSuperAdmin,
   calendars, onCalendarChange, onPlanReady, plan,
-  availableYears, onCreatePlan,
+  availablePlans, onCreatePlan,
 }) {
+  const [showNewModal, setShowNewModal] = useState(false);
+
   if (!isSuperAdmin && !isEditor) {
     return (
       <div style={{ maxWidth: 600, margin: '80px auto', padding: '0 24px', textAlign: 'center' }}>
@@ -398,9 +449,27 @@ export default function SettingsView({
         <CondividiSection />
       </Section>
 
-      <Section title="Nuovo Anno">
-        <NuovoAnnoSection availableYears={availableYears} onCreatePlan={onCreatePlan} />
+      <Section title="Nuovo calendario">
+        <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted, margin: '0 0 16px', lineHeight: 1.6 }}>
+          Crea un nuovo piano annuale con nome libero. Le settimane vengono generate automaticamente secondo ISO 8601.
+          {availablePlans.length > 0 && (
+            <> Esistenti: {availablePlans.map(p => p.name).join(', ')}.</>
+          )}
+        </p>
+        <button onClick={() => setShowNewModal(true)} style={{
+          fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+          background: T.ink, color: '#fff', border: 'none', borderRadius: 2,
+          padding: '10px 22px', cursor: 'pointer', fontWeight: 700,
+        }}>+ Crea nuovo calendario</button>
       </Section>
+
+      {showNewModal && (
+        <NuovoCalendarioModal
+          availablePlans={availablePlans}
+          onCreatePlan={onCreatePlan}
+          onClose={() => setShowNewModal(false)}
+        />
+      )}
     </div>
   );
 }
