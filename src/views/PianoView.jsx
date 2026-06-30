@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Pencil, Check, X, Download, Link } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Pencil, Check, X, Download, Link, History, Plus, Trash2 } from 'lucide-react';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
 import { exportToExcel } from '../utils/exportCalendar.js';
 import { parseWeekParam } from '../utils/router.js';
+import { getPlanChanges } from '../utils/db.js';
 
 const MONTHS_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
                    'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
@@ -15,6 +16,80 @@ function fmtEuro(n) {
 function fmtPct(n) {
   if (n === null || n === undefined) return '—';
   return (n >= 0 ? '+' : '') + (n * 100).toFixed(1) + '%';
+}
+function fmtAudit(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
+// ── Strategy links block ────────────────────────────────────
+function StrategyLinksBlock({ canEdit, links, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState([]);
+
+  function start() { setDraft(links.map(l => ({ ...l }))); setEditing(true); }
+  function cancel() { setEditing(false); setDraft([]); }
+  function save() { onSave(draft.filter(l => (l.label || l.url))); setEditing(false); setDraft([]); }
+
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${editing ? T.gold : T.line}`, borderRadius: 4, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '9px 14px 7px', borderBottom: `1px solid ${T.line}`, background: editing ? T.goldBg : T.bg,
+      }}>
+        <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>
+          Documenti di strategia
+        </span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {canEdit && (editing ? (
+            <>
+              <ActionBtn icon={<Check size={12} />} color={T.green} label="Salva" onClick={save} />
+              <ActionBtn icon={<X size={12} />} color={T.muted} label="Annulla" onClick={cancel} />
+            </>
+          ) : (
+            <ActionBtn icon={<Pencil size={11} />} color={T.muted} label="Modifica" onClick={start} />
+          ))}
+        </div>
+      </div>
+      <div style={{ padding: '8px 14px' }}>
+        {editing ? (
+          <>
+            {draft.map((l, i) => (
+              <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+                <input value={l.label || ''} placeholder="Etichetta"
+                  onChange={e => setDraft(d => d.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                  style={{ flex: 1, padding: '4px 6px', border: `1px solid ${T.gold}`, borderRadius: 2, fontFamily: fontBody, fontSize: 12, background: '#FFFDF5' }} />
+                <input value={l.url || ''} placeholder="https://…"
+                  onChange={e => setDraft(d => d.map((x, j) => j === i ? { ...x, url: e.target.value } : x))}
+                  style={{ flex: 2, padding: '4px 6px', border: `1px solid ${T.gold}`, borderRadius: 2, fontFamily: fontMono, fontSize: 11, background: '#FFFDF5' }} />
+                <button onClick={() => setDraft(d => d.filter((_, j) => j !== i))} title="Rimuovi" style={{
+                  background: 'transparent', border: `1px solid ${T.line}`, borderRadius: 2, padding: 4, cursor: 'pointer', color: T.alert,
+                }}><Trash2 size={12} /></button>
+              </div>
+            ))}
+            <button onClick={() => setDraft(d => [...d, { label: '', url: '' }])} style={{
+              display: 'flex', alignItems: 'center', gap: 4, marginTop: 4,
+              background: 'transparent', border: `1px dashed ${T.line}`, borderRadius: 2, padding: '5px 10px',
+              cursor: 'pointer', color: T.muted, fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
+            }}><Plus size={11} /> Aggiungi link</button>
+          </>
+        ) : (
+          links.length === 0 ? (
+            <span style={{ fontFamily: fontBody, fontSize: 12, color: T.muted, fontStyle: 'italic', opacity: 0.5 }}>—</span>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {links.map((l, i) => (
+                <a key={i} href={l.url} target="_blank" rel="noreferrer" style={{
+                  fontFamily: fontBody, fontSize: 13, color: T.gold, textDecoration: 'underline', wordBreak: 'break-all',
+                }}>{l.label || l.url}</a>
+              ))}
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ── Editable block wrapper ──────────────────────────────────
@@ -194,8 +269,9 @@ function KpiRow({ label, value, delta, positive }) {
 
 // ── Main view ──────────────────────────────────────────────
 
-export default function PianoView({ plan, onChange, initialWeekParam, onWeekChange, isEditor }) {
+export default function PianoView({ plan, onChange, initialWeekParam, onWeekChange, isEditor, userEmail, selectedYear, setSelectedYear, availableYears = [] }) {
   const { weeks } = plan;
+  const planYear = plan.year ?? selectedYear;
 
   // Resolve initial week index from URL param (e.g. "W24")
   const initialIdx = useMemo(() => {
@@ -261,8 +337,23 @@ export default function PianoView({ plan, onChange, initialWeekParam, onWeekChan
           }}>{m === 'detail' ? 'Dettaglio settimana' : 'Panoramica mesi'}</button>
         ))}
 
+        {/* Year switcher */}
+        {availableYears.length > 1 && setSelectedYear && (
+          <select
+            value={selectedYear}
+            onChange={e => setSelectedYear(parseInt(e.target.value))}
+            style={{
+              padding: '5px 10px', borderRadius: 2, background: T.surface, color: T.ink,
+              border: `1px solid ${T.line}`, cursor: 'pointer',
+              fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em',
+            }}
+          >
+            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        )}
+
         {/* Export button */}
-        <ExportButton plan={plan} />
+        <ExportButton plan={plan} year={planYear} />
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {months.map(({ m, label }) => (
@@ -286,7 +377,9 @@ export default function PianoView({ plan, onChange, initialWeekParam, onWeekChan
           cur={cur} weekIdx={weekIdx} weeks={weeks}
           setWeekIdx={setWeekIdx} date={date}
           onBlockSave={(section, draft) => handleBlockSave(weekIdx, section, draft)}
+          onChange={onChange}
           canEdit={!!isEditor}
+          planYear={planYear}
         />
       ) : (
         <OverviewMode weeks={weeks} onSelect={i => { setWeekIdx(i); setViewMode('detail'); }} />
@@ -297,9 +390,24 @@ export default function PianoView({ plan, onChange, initialWeekParam, onWeekChan
 
 // ── Detail view ────────────────────────────────────────────
 
-function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, canEdit }) {
+function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChange, canEdit, planYear }) {
   const hasPerf = cur.performance.ecomLY !== null || cur.performance.ecomActual !== null;
   const monthName = MONTHS_IT[date.getMonth()];
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [imgModal, setImgModal] = useState(null);
+
+  useEffect(() => {
+    if (!showHistory) return;
+    setHistoryLoading(true);
+    getPlanChanges(planYear, cur.week)
+      .then(setHistory).catch(() => setHistory([]))
+      .finally(() => setHistoryLoading(false));
+  }, [showHistory, planYear, cur.week]);
+
+  // Reset history quando cambia settimana
+  useEffect(() => { setShowHistory(false); }, [cur.week]);
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -335,6 +443,11 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, canEdi
 
             {/* Nav + copy link */}
             <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginTop: 4, alignItems: 'center' }}>
+              <button onClick={() => setShowHistory(s => !s)} title="Cronologia modifiche" style={{
+                width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: showHistory ? T.goldBg : T.bg, border: `1px solid ${showHistory ? T.gold : T.line}`,
+                borderRadius: 2, cursor: 'pointer', color: showHistory ? T.gold : T.muted, padding: 0,
+              }}><History size={14} /></button>
               <CopyLinkBtn week={cur.week} />
               <NavBtn onClick={() => setWeekIdx(i => Math.max(0, i - 1))} disabled={weekIdx === 0}>
                 <ChevronLeft size={15}/>
@@ -346,6 +459,33 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, canEdi
           </div>
         </div>
 
+        {/* History panel */}
+        {showHistory && (
+          <div style={{ background: T.surface, border: `1px solid ${T.gold}`, borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ padding: '9px 14px 7px', borderBottom: `1px solid ${T.line}`, background: T.goldBg }}>
+              <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.gold }}>
+                Cronologia modifiche · W{cur.week}
+              </span>
+            </div>
+            <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+              {historyLoading ? (
+                <div style={{ padding: 14, fontFamily: fontBody, fontSize: 12, color: T.muted }}>Caricamento…</div>
+              ) : history.length === 0 ? (
+                <div style={{ padding: 14, fontFamily: fontBody, fontSize: 12, color: T.muted }}>Nessuna modifica registrata.</div>
+              ) : history.map(h => (
+                <div key={h.id} style={{ padding: '8px 14px', borderTop: `1px solid ${T.line}` }}>
+                  <div style={{ fontFamily: fontMono, fontSize: 10, color: T.muted }}>
+                    {h.changed_by} · {h.field_path} · {new Date(h.changed_at).toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div style={{ fontFamily: fontBody, fontSize: 12, color: T.ink, marginTop: 2 }}>
+                    da <em style={{ color: T.muted }}>"{fmtAudit(h.old_value)}"</em> → <strong>"{fmtAudit(h.new_value)}"</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Context block */}
         <EditBlock canEdit={canEdit} title="Contesto" onSave={draft => onBlockSave('context', draft)}>
           {({ editing, draft, setDraft }) => (
@@ -353,9 +493,30 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, canEdi
               <ReadField label="2025 (last year)" value={cur.context.lastYear} dim />
               <Field label="Topic 2026" value={cur.context.weekTopic} fieldKey="weekTopic"
                 editing={editing} draft={draft} setDraft={setDraft} multiline />
+              <Field label="URL immagine (opzionale)" value={cur.context.weekTopicImageUrl} fieldKey="weekTopicImageUrl"
+                editing={editing} draft={draft} setDraft={setDraft} mono />
+              {cur.context.weekTopicImageUrl && (
+                <div style={{ padding: '4px 14px 4px 144px' }}>
+                  <img src={cur.context.weekTopicImageUrl} alt="thumb" onClick={() => setImgModal(cur.context.weekTopicImageUrl)}
+                    style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 3, border: `1px solid ${T.line}`, cursor: 'pointer' }} />
+                </div>
+              )}
             </>
           )}
         </EditBlock>
+
+        {/* Strategy links */}
+        <StrategyLinksBlock canEdit={canEdit} links={cur.strategyLinks || []}
+          onSave={links => onChange(weekIdx, 'strategyLinks', links)} />
+
+        {imgModal && (
+          <div onClick={() => setImgModal(null)} style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 400,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out',
+          }}>
+            <img src={imgModal} alt="full" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 4 }} />
+          </div>
+        )}
 
         {/* Brand Calendar */}
         <EditBlock canEdit={canEdit} title="Brand Calendar" accent={T.gold} onSave={draft => onBlockSave('brand', draft)}>
@@ -568,7 +729,7 @@ function CopyLinkBtn({ week }) {
   );
 }
 
-function ExportButton({ plan }) {
+function ExportButton({ plan, year }) {
   const [exporting, setExporting] = useState(false);
   const [done, setDone]           = useState('');
 
@@ -576,7 +737,7 @@ function ExportButton({ plan }) {
     setExporting(true);
     setDone('');
     try {
-      const name = exportToExcel(plan);
+      const name = exportToExcel(plan, year);
       setDone(name);
       setTimeout(() => setDone(''), 4000);
     } catch (e) {

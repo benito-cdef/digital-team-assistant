@@ -1,76 +1,10 @@
 import { useState } from 'react';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
-import UploadSlot from '../components/UploadSlot.jsx';
 import ActivityModal from '../components/ActivityModal.jsx';
-import { KEYS, saveCalendar, removeCalendar } from '../utils/storage.js';
 
 function fmt(date) {
   if (!date) return '';
   return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-// ── Sezione upload (solo editor) ──────────────────────────────────────────
-function UploadSection({ calendars, onCalendarChange, onPlanReady, plan, onGoToPiano, cloudLoading }) {
-  function save(key, filename, activities) {
-    saveCalendar(key, { filename, uploadedAt: new Date().toISOString(), activities, rowCount: activities.length });
-    onCalendarChange();
-  }
-  function handleSave(key)    { return ({ filename, activities }) => save(key, filename, activities); }
-  function handleSaveBoth({ filename, commercial, brand }) {
-    save(KEYS.curCom, filename, commercial);
-    save(KEYS.curBra, filename, brand);
-  }
-  function handleRemove(key)  { removeCalendar(key); onCalendarChange(); }
-
-  const planTs = localStorage.getItem('dta:plan:ts');
-
-  return (
-    <div style={{ marginBottom: 48 }}>
-      <p style={{ fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.muted, margin: '0 0 16px' }}>
-        Upload calendario
-      </p>
-
-      {/* Piano banner */}
-      {plan && (
-        <div style={{
-          background: T.goldBg, border: `1px solid ${T.gold}`, borderRadius: 4,
-          padding: '12px 18px', marginBottom: 16,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-        }}>
-          <div>
-            <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.gold }}>
-              ★ Piano in memoria
-            </span>
-            <span style={{ fontFamily: fontMono, fontSize: 10, color: T.muted, marginLeft: 12 }}>
-              {plan.filename} · {plan.weeks?.length || 0} sett.
-              {planTs && ` · salvato il ${new Date(planTs).toLocaleDateString('it-IT', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}`}
-            </span>
-          </div>
-          <button onClick={onGoToPiano} style={{
-            background: T.gold, color: T.ink, border: 'none', borderRadius: 2,
-            padding: '6px 14px', fontFamily: fontTitle, fontSize: 10,
-            letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 700, flexShrink: 0,
-          }}>Piano →</button>
-        </div>
-      )}
-
-      {/* Upload slots 2x2 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-        <UploadSlot label="Calendario Commerciale" accent="ink" storageKey={KEYS.curCom}
-          data={calendars.curCom} onSave={handleSave(KEYS.curCom)}
-          onSaveBoth={handleSaveBoth} onPlanReady={onPlanReady} onRemove={() => handleRemove(KEYS.curCom)} />
-        <UploadSlot label="Calendario Brand" accent="gold" storageKey={KEYS.curBra}
-          data={calendars.curBra} onSave={handleSave(KEYS.curBra)}
-          onSaveBoth={handleSaveBoth} onRemove={() => handleRemove(KEYS.curBra)} />
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <UploadSlot label="Commerciale anno prec." accent="ink" storageKey={KEYS.preCom} isPrev
-          data={calendars.preCom} onSave={handleSave(KEYS.preCom)} onRemove={() => handleRemove(KEYS.preCom)} />
-        <UploadSlot label="Brand anno prec." accent="gold" storageKey={KEYS.preBra} isPrev
-          data={calendars.preBra} onSave={handleSave(KEYS.preBra)} onRemove={() => handleRemove(KEYS.preBra)} />
-      </div>
-    </div>
-  );
 }
 
 // ── Sezione report attività ───────────────────────────────────────────────
@@ -155,27 +89,13 @@ function ReportSection({ calendars }) {
   );
 }
 
-// ── Home View ─────────────────────────────────────────────────────────────
-export default function HomeView({ calendars, onCalendarChange, onPlanReady, plan, onGoToPiano, onGo, isEditor, cloudLoading }) {
+// ── Report View (solo attività; upload spostato in Settings) ───────────────
+export default function ReportView({ calendars, cloudLoading }) {
   const hasCalendar = Object.values(calendars).some(Boolean);
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '40px 24px 80px' }}>
-
-      {/* Editor: upload section */}
-      {isEditor && (
-        <UploadSection
-          calendars={calendars}
-          onCalendarChange={onCalendarChange}
-          onPlanReady={onPlanReady}
-          plan={plan}
-          onGoToPiano={onGoToPiano}
-          cloudLoading={cloudLoading}
-        />
-      )}
-
-      {/* Reader senza dati: messaggio attesa */}
-      {!isEditor && !hasCalendar && (
+      {!hasCalendar && (
         <div style={{
           textAlign: 'center', padding: '60px 24px',
           background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4, marginBottom: 40,
@@ -187,44 +107,7 @@ export default function HomeView({ calendars, onCalendarChange, onPlanReady, pla
         </div>
       )}
 
-      {/* Reader con piano disponibile */}
-      {!isEditor && plan && !hasCalendar && (
-        <div style={{
-          background: T.goldBg, border: `1px solid ${T.gold}`, borderRadius: 4,
-          padding: '16px 20px', marginBottom: 40,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div>
-            <p style={{ fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.gold, margin: '0 0 2px' }}>★ Piano settimanale disponibile</p>
-            <p style={{ fontFamily: fontBody, fontSize: 12, color: T.ink2, margin: 0 }}>{plan.filename} · {plan.weeks?.length || 0} settimane</p>
-          </div>
-          <button onClick={onGoToPiano} style={{
-            background: T.gold, color: T.ink, border: 'none', borderRadius: 2,
-            padding: '8px 16px', fontFamily: fontTitle, fontSize: 10,
-            letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 700,
-          }}>Piano →</button>
-        </div>
-      )}
-
-      {/* Report attività — visibile a tutti se ci sono dati */}
       <ReportSection calendars={calendars} />
-
-      {/* CTA vai al calendario (editor) */}
-      {isEditor && hasCalendar && (
-        <div style={{
-          background: T.green, borderRadius: 4, padding: '16px 22px', marginTop: 32,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <p style={{ fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#fff', margin: 0 }}>
-            Calendario pronto
-          </p>
-          <button onClick={onGo} style={{
-            background: '#fff', color: T.green, border: 'none', borderRadius: 2, padding: '7px 18px',
-            fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-            cursor: 'pointer', fontWeight: 700,
-          }}>Vai al calendario →</button>
-        </div>
-      )}
     </div>
   );
 }

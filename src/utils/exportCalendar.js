@@ -60,8 +60,9 @@ function getVal(week, row) {
   return obj?.[row.field] ?? '';
 }
 
-export function exportToExcel(plan) {
-  const { weeks, year, filename } = plan;
+export function exportToExcel(plan, yearArg) {
+  const { weeks, filename } = plan;
+  const year = yearArg ?? plan.year;
 
   const wb = XLSX.utils.book_new();
 
@@ -115,7 +116,7 @@ export function exportToExcel(plan) {
      'THU TOPIC', 'THU EU', 'THU US', 'THU KR',
      'FRI TOPIC', 'FRI EU', 'FRI US', 'FRI KR',
      'APP EXCLUSIVE', 'PRODUCT CODE',
-     'SAT TOPIC', 'SAT SKU', 'SAT NOTE'],
+     'SAT TOPIC', 'SAT SKU', 'SAT NOTE', 'STRATEGY LINKS'],
     ...weeks.map(w => {
       const t = w.marketing.tuesday;
       const wed = w.marketing.wednesday;
@@ -130,6 +131,7 @@ export function exportToExcel(plan) {
         fri.topic, fri.eu, fri.us, fri.kr,
         fri.appTopic, fri.productCode,
         sat.topic, sat.skuCode, sat.note,
+        (w.strategyLinks || []).map(l => `${l.label || ''}: ${l.url || ''}`).join('\n'),
       ];
     }),
   ];
@@ -138,7 +140,7 @@ export function exportToExcel(plan) {
   XLSX.utils.book_append_sheet(wb, wsMkt, 'Marketing Activations');
 
   // Download
-  const exportName = `DTA_${year}_export_${new Date().toISOString().slice(0,10)}.xlsx`;
+  const exportName = `Piano_GoldenGoose_${year}.xlsx`;
   XLSX.writeFile(wb, exportName);
   return exportName;
 }

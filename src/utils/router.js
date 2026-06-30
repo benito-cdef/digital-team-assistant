@@ -4,9 +4,9 @@
  */
 
 export function parseHash() {
-  const hash = window.location.hash.replace(/^#\/?/, '') || 'upload';
+  const hash = window.location.hash.replace(/^#\/?/, '') || 'dashboard';
   const parts = hash.split('/');
-  const view  = parts[0] || 'upload';
+  const view  = parts[0] || 'dashboard';
   const param = parts[1] || null;   // e.g. "W24"
   return { view, param };
 }
