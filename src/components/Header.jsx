@@ -55,7 +55,12 @@ function PlanDropdown({ availablePlans, selectedPlan, onSelectPlan }) {
         onMouseLeave={e => { if (!open) e.currentTarget.style.borderColor = T.line; }}
       >
         <span style={{ fontSize: 12 }}>📅</span>
-        <span>{selectedPlan?.name || '–'}</span>
+        <span>
+          {selectedPlan?.name || '–'}
+          {selectedPlan?.isoYear && !String(selectedPlan.name || '').includes(String(selectedPlan.isoYear))
+            ? <span style={{ opacity: 0.5, marginLeft: 4 }}>· {selectedPlan.isoYear}</span>
+            : null}
+        </span>
         <span style={{ fontSize: 8, opacity: 0.7 }}>▾</span>
       </button>
 

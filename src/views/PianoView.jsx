@@ -92,6 +92,87 @@ function StrategyLinksBlock({ canEdit, links, onSave }) {
   );
 }
 
+// ── Image links block (multi-URL, per giorno) ──────────────
+function ImagesBlock({ canEdit, images, onSave, title = 'Immagini' }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft]     = useState([]);
+  const [lightbox, setLightbox] = useState(null);
+
+  function start()  { setDraft([...(images || [])].filter(Boolean)); setEditing(true); }
+  function cancel() { setEditing(false); setDraft([]); }
+  function save()   { onSave(draft.filter(u => u.trim())); setEditing(false); setDraft([]); }
+
+  const looksLikeImage = url => /\.(jpg|jpeg|png|gif|webp|svg|avif)(\?|$)/i.test(url);
+
+  return (
+    <>
+      <div style={{ background: T.surface, border: `1px solid ${editing ? T.gold : T.line}`, borderRadius: 0, overflow: 'hidden' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '9px 14px 7px', borderBottom: `1px solid ${T.line}`, background: editing ? T.goldBg : T.bg,
+        }}>
+          <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>{title}</span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {canEdit && (editing ? (
+              <>
+                <ActionBtn icon={<Check size={12} />} color={T.green} label="Salva" onClick={save} />
+                <ActionBtn icon={<X size={12} />} color={T.muted} label="Annulla" onClick={cancel} />
+              </>
+            ) : (
+              <ActionBtn icon={<Pencil size={11} />} color={T.muted} label="Modifica" onClick={start} />
+            ))}
+          </div>
+        </div>
+        <div style={{ padding: '8px 14px' }}>
+          {editing ? (
+            <>
+              {draft.map((url, i) => (
+                <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+                  <input value={url} placeholder="https://…"
+                    onChange={e => setDraft(d => d.map((x, j) => j === i ? e.target.value : x))}
+                    style={{ flex: 1, padding: '4px 6px', border: `1px solid ${T.gold}`, borderRadius: 0, fontFamily: fontMono, fontSize: 11, background: T.surface }} />
+                  <button onClick={() => setDraft(d => d.filter((_, j) => j !== i))} title="Rimuovi" style={{
+                    background: 'transparent', border: `1px solid ${T.line}`, borderRadius: 0, padding: 4, cursor: 'pointer', color: T.alert,
+                  }}><Trash2 size={12} /></button>
+                </div>
+              ))}
+              <button onClick={() => setDraft(d => [...d, ''])} style={{
+                display: 'flex', alignItems: 'center', gap: 4, marginTop: 4,
+                background: 'transparent', border: `1px dashed ${T.line}`, borderRadius: 0, padding: '5px 10px',
+                cursor: 'pointer', color: T.muted, fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
+              }}><Plus size={11} /> Aggiungi URL</button>
+            </>
+          ) : !images || images.length === 0 ? (
+            <span style={{ fontFamily: fontBody, fontSize: 12, color: T.muted, fontStyle: 'italic', opacity: 0.5 }}>—</span>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-start' }}>
+              {images.map((url, i) => (
+                looksLikeImage(url) ? (
+                  <img key={i} src={url} alt="" onClick={() => setLightbox(url)}
+                    style={{ width: 52, height: 52, objectFit: 'cover', border: `1px solid ${T.line}`, cursor: 'zoom-in' }} />
+                ) : (
+                  <a key={i} href={url} target="_blank" rel="noreferrer" style={{
+                    fontFamily: fontMono, fontSize: 10, color: T.gold, textDecoration: 'underline',
+                    wordBreak: 'break-all', display: 'block',
+                  }}>{url}</a>
+                )
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 500,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out',
+        }}>
+          <img src={lightbox} alt="" style={{ maxWidth: '100%', maxHeight: '100%' }} />
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Editable block wrapper ──────────────────────────────────
 
 function EditBlock({ title, accent, children, onSave, canEdit = true }) {
@@ -451,7 +532,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [imgModal, setImgModal] = useState(null);
+  const [showComparison, setShowComparison] = useState(false);
 
   useEffect(() => {
     if (!showHistory) return;
@@ -464,8 +545,10 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
   // Reset history quando cambia settimana
   useEffect(() => { setShowHistory(false); }, [cur.week]);
 
+  const showComp = !!(comparisonWeek && showComparison);
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: comparisonWeek ? '1fr 1fr 1fr' : '1fr 1fr', gap: 14 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: showComp ? '1fr 0.55fr 1fr' : '1fr 1fr', gap: 14 }}>
 
       {/* LEFT */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -498,6 +581,18 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
 
             {/* Nav + copy link */}
             <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginTop: 4, alignItems: 'center' }}>
+              {comparisonWeek && (
+                <button onClick={() => setShowComparison(s => !s)} title="Confronto anno precedente" style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '4px 8px', borderRadius: 0,
+                  background: showComparison ? T.goldBg : T.bg,
+                  border: `1px solid ${showComparison ? T.gold : T.line}`,
+                  color: showComparison ? T.goldDark : T.muted,
+                  cursor: 'pointer', fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
+                }}>
+                  ◧ {showComparison ? 'Nascondi confronto' : 'Confronto anno prec.'}
+                </button>
+              )}
               <button onClick={() => setShowHistory(s => !s)} title="Cronologia modifiche" style={{
                 width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: showHistory ? T.goldBg : T.bg, border: `1px solid ${showHistory ? T.gold : T.line}`,
@@ -548,30 +643,20 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
               <ReadField label="2025 (last year)" value={cur.context.lastYear} dim />
               <Field label="Topic 2026" value={cur.context.weekTopic} fieldKey="weekTopic"
                 editing={editing} draft={draft} setDraft={setDraft} multiline />
-              <Field label="URL immagine (opzionale)" value={cur.context.weekTopicImageUrl} fieldKey="weekTopicImageUrl"
-                editing={editing} draft={draft} setDraft={setDraft} mono />
-              {cur.context.weekTopicImageUrl && (
-                <div style={{ padding: '4px 14px 4px 144px' }}>
-                  <img src={cur.context.weekTopicImageUrl} alt="thumb" onClick={() => setImgModal(cur.context.weekTopicImageUrl)}
-                    style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 3, border: `1px solid ${T.line}`, cursor: 'pointer' }} />
-                </div>
-              )}
             </>
           )}
         </EditBlock>
 
+        <ImagesBlock
+          canEdit={canEdit}
+          title="Immagini contesto"
+          images={cur.context.images || (cur.context.weekTopicImageUrl ? [cur.context.weekTopicImageUrl] : [])}
+          onSave={imgs => onChange(weekIdx, 'context.images', imgs)}
+        />
+
         {/* Strategy links */}
         <StrategyLinksBlock canEdit={canEdit} links={cur.strategyLinks || []}
           onSave={links => onChange(weekIdx, 'strategyLinks', links)} />
-
-        {imgModal && (
-          <div onClick={() => setImgModal(null)} style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 400,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out',
-          }}>
-            <img src={imgModal} alt="full" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 0 }} />
-          </div>
-        )}
 
         {/* Brand Calendar */}
         <EditBlock canEdit={canEdit} title="Brand Calendar" accent={T.gold} onSave={draft => onBlockSave('brand', draft)}>
@@ -606,8 +691,8 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
         )}
       </div>
 
-      {/* CONFRONTO ANNO PRECEDENTE — colonna destra opzionale */}
-      {comparisonWeek && (
+      {/* CONFRONTO ANNO PRECEDENTE — colonna centrale opzionale */}
+      {showComp && (
         <ComparisonColumn comparisonWeek={comparisonWeek} planYear={planYear} />
       )}
 
@@ -621,10 +706,12 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
               <Field label="Topic WW"  value={cur.marketing.tuesday.ww}      fieldKey="ww"      editing={editing} draft={draft} setDraft={setDraft} multiline />
               <Field label="Note"      value={cur.marketing.tuesday.note}    fieldKey="note"    editing={editing} draft={draft} setDraft={setDraft} multiline />
               <Field label="SKU Code"  value={cur.marketing.tuesday.skuCode} fieldKey="skuCode" editing={editing} draft={draft} setDraft={setDraft} mono multiline />
-              <ReadField label="Immagine" value={cur.marketing.tuesday.image} mono />
             </>
           )}
         </EditBlock>
+        <ImagesBlock canEdit={canEdit} title="Immagini · Martedì"
+          images={cur.marketing.tuesday.images || (cur.marketing.tuesday.image ? [cur.marketing.tuesday.image] : [])}
+          onSave={imgs => onChange(weekIdx, 'marketing.tuesday.images', imgs)} />
 
         {/* Wednesday */}
         <EditBlock canEdit={canEdit} title="Mercoledì — Best Performer" onSave={draft => onBlockSave('marketing.wednesday', draft)}>
@@ -637,6 +724,9 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
             </>
           )}
         </EditBlock>
+        <ImagesBlock canEdit={canEdit} title="Immagini · Mercoledì"
+          images={cur.marketing.wednesday.images || []}
+          onSave={imgs => onChange(weekIdx, 'marketing.wednesday.images', imgs)} />
 
         {/* Thursday */}
         <EditBlock canEdit={canEdit} title="Giovedì" onSave={draft => onBlockSave('marketing.thursday', draft)}>
@@ -649,6 +739,9 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
             </>
           )}
         </EditBlock>
+        <ImagesBlock canEdit={canEdit} title="Immagini · Giovedì"
+          images={cur.marketing.thursday.images || []}
+          onSave={imgs => onChange(weekIdx, 'marketing.thursday.images', imgs)} />
 
         {/* Friday */}
         <EditBlock canEdit={canEdit} title="Venerdì — Worst Seller + App" onSave={draft => onBlockSave('marketing.friday', draft)}>
@@ -664,6 +757,9 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
             </>
           )}
         </EditBlock>
+        <ImagesBlock canEdit={canEdit} title="Immagini · Venerdì"
+          images={cur.marketing.friday.images || []}
+          onSave={imgs => onChange(weekIdx, 'marketing.friday.images', imgs)} />
 
         {/* Saturday */}
         <EditBlock canEdit={canEdit} title="Sabato — Newsletter" onSave={draft => onBlockSave('marketing.saturday', draft)}>
@@ -675,6 +771,9 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
             </>
           )}
         </EditBlock>
+        <ImagesBlock canEdit={canEdit} title="Immagini · Sabato"
+          images={cur.marketing.saturday.images || []}
+          onSave={imgs => onChange(weekIdx, 'marketing.saturday.images', imgs)} />
 
       </div>
     </div>

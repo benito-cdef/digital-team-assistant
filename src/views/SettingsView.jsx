@@ -390,6 +390,94 @@ function NuovoCalendarioModal({ onClose, onCreatePlan, availablePlans }) {
   );
 }
 
+// ── Sezione piani disponibili (rinomina) ──────────────────────────────────
+function PianiSection({ availablePlans, onRenamePlan }) {
+  const [editingId, setEditingId]   = useState(null);
+  const [draftName, setDraftName]   = useState('');
+  const [draftYear, setDraftYear]   = useState('');
+  const [saving, setSaving]         = useState(false);
+
+  function startEdit(plan) {
+    setEditingId(plan.id);
+    setDraftName(plan.name);
+    setDraftYear(plan.isoYear ? String(plan.isoYear) : '');
+  }
+
+  async function saveEdit(id) {
+    if (!draftName.trim()) return;
+    setSaving(true);
+    try {
+      await onRenamePlan(id, draftName.trim(), parseInt(draftYear) || undefined);
+      setEditingId(null);
+    } finally { setSaving(false); }
+  }
+
+  if (!availablePlans || availablePlans.length === 0) {
+    return <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted }}>Nessun piano disponibile.</p>;
+  }
+
+  const inputSt = {
+    fontFamily: fontBody, fontSize: 13, color: T.ink,
+    border: `1px solid ${T.lineM}`, borderRadius: 0, padding: '6px 10px',
+    background: T.surface, outline: 'none',
+  };
+
+  return (
+    <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px', background: T.ink, padding: '8px 14px', gap: 12 }}>
+        {['Nome', 'Anno', ''].map(h => (
+          <div key={h} style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>{h}</div>
+        ))}
+      </div>
+      {availablePlans.map(plan => (
+        <div key={plan.id} style={{
+          display: 'grid', gridTemplateColumns: '1fr 80px 100px', gap: 12,
+          padding: '10px 14px', borderTop: `1px solid ${T.line}`, alignItems: 'center',
+          background: editingId === plan.id ? T.goldBg : T.surface,
+        }}>
+          {editingId === plan.id ? (
+            <>
+              <input value={draftName} onChange={e => setDraftName(e.target.value)}
+                style={inputSt}
+                onFocus={e => { e.target.style.borderColor = T.gold; e.target.style.outline = '2px solid rgba(192,152,80,0.2)'; e.target.style.outlineOffset = '0'; }}
+                onBlur={e => { e.target.style.borderColor = T.lineM; e.target.style.outline = 'none'; }}
+              />
+              <input value={draftYear} onChange={e => setDraftYear(e.target.value)} placeholder="Anno"
+                style={{ ...inputSt, width: '100%' }}
+                onFocus={e => { e.target.style.borderColor = T.gold; e.target.style.outline = '2px solid rgba(192,152,80,0.2)'; e.target.style.outlineOffset = '0'; }}
+                onBlur={e => { e.target.style.borderColor = T.lineM; e.target.style.outline = 'none'; }}
+              />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => saveEdit(plan.id)} disabled={saving} style={{
+                  fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  background: T.green, color: '#fff', border: 'none', borderRadius: 0,
+                  padding: '6px 10px', cursor: 'pointer',
+                }}>{saving ? '…' : '✓'}</button>
+                <button onClick={() => setEditingId(null)} style={{
+                  fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  background: 'transparent', color: T.muted, border: `1px solid ${T.line}`, borderRadius: 0,
+                  padding: '6px 10px', cursor: 'pointer',
+                }}>✕</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <span style={{ fontFamily: fontBody, fontSize: 13, color: T.ink }}>{plan.name}</span>
+              <span style={{ fontFamily: fontMono, fontSize: 12, color: T.muted }}>{plan.isoYear || '—'}</span>
+              <button onClick={() => startEdit(plan)} style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
+                background: 'transparent', color: T.muted, border: `1px solid ${T.line}`, borderRadius: 0,
+                padding: '6px 10px', cursor: 'pointer',
+              }}>✎ Rinomina</button>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Sezione generica con titolo ───────────────────────────────────────────
 function Section({ title, children }) {
   return (
@@ -408,7 +496,7 @@ function Section({ title, children }) {
 export default function SettingsView({
   userEmail, isEditor, isSuperAdmin,
   calendars, onCalendarChange, onPlanReady, plan,
-  availablePlans, onCreatePlan,
+  availablePlans, onCreatePlan, onRenamePlan,
 }) {
   const [showNewModal, setShowNewModal] = useState(false);
 
@@ -447,6 +535,12 @@ export default function SettingsView({
       <Section title="Condividi">
         <CondividiSection />
       </Section>
+
+      {availablePlans && availablePlans.length > 0 && onRenamePlan && (
+        <Section title="Piani disponibili">
+          <PianiSection availablePlans={availablePlans} onRenamePlan={onRenamePlan} />
+        </Section>
+      )}
 
       <Section title="Nuovo calendario">
         <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted, margin: '0 0 16px', lineHeight: 1.6 }}>

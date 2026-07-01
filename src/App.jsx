@@ -6,7 +6,7 @@ import {
   getOrInitPlansManifest, clearManifestCache,
   loadPlanFile, savePlanFile,
   loadCalendarsFromCloud, saveCalendarsToCloud,
-  createNewPlan,
+  createNewPlan, updatePlanManifestEntry,
 } from './utils/cloudStorage.js';
 import { logPlanChange } from './utils/db.js';
 import { getCurrentISOYear } from './utils/isoWeek.js';
@@ -193,6 +193,17 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
     });
   }, [isEditor, selectedPlan, userEmail]);  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Rinomina piano esistente
+  async function handleRenamePlan(id, newName, newIsoYear) {
+    const changes = { name: newName };
+    if (newIsoYear) changes.isoYear = newIsoYear;
+    await updatePlanManifestEntry(id, changes);
+    clearManifestCache();
+    const updated = await getOrInitPlansManifest();
+    setAvailablePlans(updated);
+    if (selectedPlan?.id === id) setSelectedPlan(updated.find(p => p.id === id) ?? selectedPlan);
+  }
+
   // Crea nuovo piano (da Settings modal) e aggiorna manifest
   async function handleCreatePlan({ name, isoYear, description, weeks }) {
     const record = await createNewPlan({ name, isoYear, description, weeks });
@@ -267,6 +278,7 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
             plan={plan}
             availablePlans={availablePlans}
             onCreatePlan={handleCreatePlan}
+            onRenamePlan={handleRenamePlan}
           />
         )}
 
