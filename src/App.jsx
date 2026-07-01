@@ -75,7 +75,7 @@ function calendarsFromCloud(data) {
 
 export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
   const [route, setRoute]           = useState(parseHash());
-  const [calendars, setCalendars]   = useState(loadAll());
+  const [calendars, setCalendars]   = useState({});
   const [plan, setPlan]             = useState(null);
   const [comparisonPlan, setComparisonPlan] = useState(null); // piano anno precedente per confronto
   const [availablePlans, setAvailablePlans] = useState([]);   // manifest
@@ -83,37 +83,28 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
   const [cloudLoading, setCloudLoading] = useState(true);
   const [cloudSaving,  setCloudSaving]  = useState(false);
 
-  // ── Carica manifest + calendari al mount ──────────────────────────────────
+  // ── Carica manifest al mount ──────────────────────────────────────────────
   useEffect(() => {
-    loadCalendarsFromCloud().then(cloudCals => {
-      if (cloudCals) {
-        const hydrated = calendarsFromCloud(cloudCals);
-        if (hydrated.curCom) saveCalendar(KEYS.curCom, hydrated.curCom);
-        if (hydrated.curBra) saveCalendar(KEYS.curBra, hydrated.curBra);
-        if (hydrated.preCom) saveCalendar(KEYS.preCom, hydrated.preCom);
-        if (hydrated.preBra) saveCalendar(KEYS.preBra, hydrated.preBra);
-        setCalendars(loadAll());
-      }
-    }).catch(console.error);
-
     getOrInitPlansManifest().then(plans => {
       setAvailablePlans(plans);
-      // Seleziona il piano dell'anno corrente di default; altrimenti il più recente
       const currentYear = getCurrentISOYear();
       const defaultPlan = plans.find(p => p.isoYear === currentYear) || plans[plans.length - 1] || null;
       setSelectedPlan(defaultPlan);
     }).catch(() => {});
   }, []);
 
-  // ── Carica piano selezionato + piano confronto (anno precedente) ──────────
+  // ── Carica piano + calendari al cambio piano ──────────────────────────────
   useEffect(() => {
     if (!selectedPlan) return;
     setCloudLoading(true);
     setComparisonPlan(null);
+    // Svuota i calendari subito così la UI non mostra dati del piano precedente
+    setCalendars({});
 
     const local = loadPlanLocal(selectedPlan.id);
     if (local) setPlan(local);
 
+    // Carica piano
     loadPlanFile(selectedPlan.filename).then(cloudPlan => {
       if (cloudPlan) {
         setPlan(cloudPlan);
@@ -123,6 +114,11 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
       }
       setCloudLoading(false);
     }).catch(() => setCloudLoading(false));
+
+    // Carica calendari specifici per l'anno del piano
+    loadCalendarsFromCloud(selectedPlan.isoYear).then(cloudCals => {
+      if (cloudCals) setCalendars(calendarsFromCloud(cloudCals));
+    }).catch(console.error);
 
     // Piano confronto: cerca piano con isoYear = selectedPlan.isoYear - 1
     if (selectedPlan.isoYear) {
@@ -147,7 +143,7 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
   function refresh() {
     const updated = loadAll();
     setCalendars(updated);
-    if (isEditor) saveCalendarsToCloud(updated).catch(console.error);
+    if (isEditor) saveCalendarsToCloud(updated, selectedPlan?.isoYear).catch(console.error);
   }
 
   // ── Salva piano da upload ─────────────────────────────────────────────────

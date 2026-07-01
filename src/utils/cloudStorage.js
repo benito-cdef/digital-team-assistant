@@ -164,6 +164,19 @@ export async function loadPlanFromCloud(year) {
 }
 export const savePlanToCloud = (year, data) => cloudSave(`plan_${year}.json`, data);
 
-// ── Calendari ─────────────────────────────────────────────────────────────
-export const loadCalendarsFromCloud = () => cloudLoad('calendars.json');
-export const saveCalendarsToCloud   = (data) => cloudSave('calendars.json', data);
+// ── Calendari (per anno ISO) ───────────────────────────────────────────────
+// calendars_NNNN.json per gli anni nuovi; fallback a calendars.json per il 2026 legacy.
+export async function loadCalendarsFromCloud(isoYear) {
+  if (isoYear) {
+    const year = parseInt(isoYear);
+    const specific = await cloudLoad(`calendars_${year}.json`);
+    if (specific) return specific;
+    if (year === 2026) return cloudLoad('calendars.json');
+    return null; // piano nuovo → calendari vuoti
+  }
+  return cloudLoad('calendars.json');
+}
+export function saveCalendarsToCloud(data, isoYear) {
+  const filename = isoYear ? `calendars_${parseInt(isoYear)}.json` : 'calendars.json';
+  return cloudSave(filename, data);
+}
