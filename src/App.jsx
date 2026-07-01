@@ -242,6 +242,8 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
             plan={plan}
             isSuperAdmin={isSuperAdmin}
             onNav={(v, p) => navigate(v, p)}
+            cloudLoading={cloudLoading}
+            planYear={planYear}
           />
         )}
 
