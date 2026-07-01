@@ -28,7 +28,7 @@ export default function MappingSelector({ columns, mapping, onChange, rows, onCo
               style={{
                 width: '100%', padding: '5px 8px',
                 border: `1px solid ${mapping[f.key] ? T.line : (f.required ? T.alert : T.line)}`,
-                borderRadius: 2, fontFamily: fontBody, fontSize: 12,
+                borderRadius: 0, fontFamily: fontBody, fontSize: 12,
                 background: T.surface, color: T.ink,
                 outline: 'none',
               }}
@@ -79,7 +79,7 @@ export default function MappingSelector({ columns, mapping, onChange, rows, onCo
             padding: '7px 18px',
             background: mapping.data && mapping.tema ? T.ink : T.line,
             color: mapping.data && mapping.tema ? '#fff' : T.muted,
-            border: 'none', borderRadius: 2,
+            border: 'none', borderRadius: 0,
             fontFamily: fontTitle, fontSize: 11,
             letterSpacing: '0.1em', textTransform: 'uppercase',
             cursor: mapping.data && mapping.tema ? 'pointer' : 'not-allowed',
@@ -93,7 +93,7 @@ export default function MappingSelector({ columns, mapping, onChange, rows, onCo
             padding: '7px 18px',
             background: 'transparent',
             color: T.muted,
-            border: `1px solid ${T.line}`, borderRadius: 2,
+            border: `1px solid ${T.line}`, borderRadius: 0,
             fontFamily: fontTitle, fontSize: 11,
             letterSpacing: '0.1em', textTransform: 'uppercase',
             cursor: 'pointer',

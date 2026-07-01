@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { T } from './tokens.js';
+import { T, fontTitle } from './tokens.js';
 import { loadAll, saveCalendar, KEYS } from './utils/storage.js';
 import { parseHash, pushHash } from './utils/router.js';
 import {
@@ -211,7 +211,7 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
   return (
     <div style={{ minHeight: '100vh', background: T.bg }}>
       <Header
-        view={view} onView={v => navigate(v)} hasPlan={!!plan} isSuperAdmin={isSuperAdmin}
+        view={view} onView={v => navigate(v)} hasPlan={!!plan} isSuperAdmin={isSuperAdmin} userEmail={userEmail}
         availablePlans={availablePlans} selectedPlan={selectedPlan}
         onSelectPlan={p => { setSelectedPlan(p); navigate('piano'); }}
       />
@@ -220,7 +220,7 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
         <div style={{
           position: 'fixed', top: 56, left: 0, right: 0, zIndex: 99,
           background: T.gold, color: T.ink, padding: '6px 24px',
-          fontFamily: "'Arial Narrow', Arial", fontSize: 11,
+          fontFamily: fontTitle, fontSize: 11,
           letterSpacing: '0.1em', textTransform: 'uppercase', textAlign: 'center',
         }}>
           Salvataggio in corso…
@@ -284,20 +284,20 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
         )}
         {view === 'piano' && !plan && !cloudLoading && (
           <div style={{ padding: 48, textAlign: 'center' }}>
-            <p style={{ fontFamily: "'Arial Narrow', Arial", fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9A9791' }}>
+            <p style={{ fontFamily: fontTitle, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9A9791' }}>
               {selectedPlan ? `Nessun dato per "${selectedPlan.name}"` : 'Nessun piano selezionato'}
             </p>
             {isEditor && (
               <button onClick={() => navigate('settings')} style={{
                 marginTop: 16, padding: '8px 20px', background: T.ink, color: '#fff',
-                border: 'none', borderRadius: 2, fontFamily: "'Arial Narrow', Arial",
+                border: 'none', borderRadius: 0, fontFamily: fontTitle,
                 fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
               }}>Vai a Settings →</button>
             )}
           </div>
         )}
         {view === 'piano' && !plan && cloudLoading && (
-          <div style={{ padding: 48, textAlign: 'center', color: '#9A9791', fontFamily: "'Arial Narrow', Arial", fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <div style={{ padding: 48, textAlign: 'center', color: '#9A9791', fontFamily: fontTitle, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Caricamento dati…
           </div>
         )}

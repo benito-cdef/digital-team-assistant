@@ -29,7 +29,7 @@ export default function UploadView({ calendars, onCalendarChange, onGo, onPlanRe
         ) : plan ? (
           <div style={{
             background: T.goldBg, border: `1px solid ${T.gold}`,
-            borderRadius: 4, padding: '20px 24px',
+            borderRadius: 0, padding: '20px 24px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
           }}>
             <div>
@@ -44,7 +44,7 @@ export default function UploadView({ calendars, onCalendarChange, onGo, onPlanRe
               </p>
             </div>
             <button onClick={onGoToPiano} style={{
-              background: T.gold, color: T.ink, border: 'none', borderRadius: 2,
+              background: T.gold, color: T.ink, border: 'none', borderRadius: 0,
               padding: '8px 18px', fontFamily: fontTitle, fontSize: 11,
               letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 700,
             }}>
@@ -68,7 +68,7 @@ export default function UploadView({ calendars, onCalendarChange, onGo, onPlanRe
       {plan && (
         <div style={{
           background: T.goldBg, border: `1px solid ${T.gold}`,
-          borderRadius: 4, padding: '14px 20px', marginBottom: 28,
+          borderRadius: 0, padding: '14px 20px', marginBottom: 28,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
         }}>
           <div>
@@ -83,7 +83,7 @@ export default function UploadView({ calendars, onCalendarChange, onGo, onPlanRe
             </p>
           </div>
           <button onClick={onGoToPiano} style={{
-            background: T.gold, color: T.ink, border: 'none', borderRadius: 2,
+            background: T.gold, color: T.ink, border: 'none', borderRadius: 0,
             padding: '8px 18px', fontFamily: fontTitle, fontSize: 11,
             letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 700, flexShrink: 0,
           }}>
@@ -126,14 +126,14 @@ export default function UploadView({ calendars, onCalendarChange, onGo, onPlanRe
       {/* CTA */}
       {hasAny && (
         <div style={{
-          background: T.green, borderRadius: 4, padding: '18px 24px',
+          background: T.green, borderRadius: 0, padding: '18px 24px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <p style={{ fontFamily: fontTitle, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#fff', margin: 0 }}>
             Calendario pronto
           </p>
           <button onClick={onGo} style={{
-            background: '#fff', color: T.green, border: 'none', borderRadius: 2, padding: '8px 20px',
+            background: '#fff', color: T.green, border: 'none', borderRadius: 0, padding: '8px 20px',
             fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
             cursor: 'pointer', fontWeight: 700,
           }}>

@@ -48,7 +48,7 @@ export default function ReportView({ calendars }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 40 }}>
         {statCards.map(s => (
           <div key={s.label} style={{
-            background: s.bg, border: `1px solid ${s.border}`, borderRadius: 4, padding: '20px 18px',
+            background: s.bg, border: `1px solid ${s.border}`, borderRadius: 0, padding: '20px 18px',
           }}>
             <div style={{ fontFamily: fontTitle, fontSize: 36, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.count}</div>
             <div style={{ fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: s.color, opacity: 0.7, marginTop: 6 }}>{s.label}</div>
@@ -65,7 +65,7 @@ export default function ReportView({ calendars }) {
           {sec.items.length === 0 ? (
             <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted }}>Nessuna attività</p>
           ) : (
-            <div style={{ border: `1px solid ${T.line}`, borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, overflow: 'hidden' }}>
               {sec.items.map((a, i) => (
                 <div
                   key={a.id}

@@ -10,7 +10,7 @@ function QuickCard({ label, icon, href, onClick, disabled }) {
       onClick={e => { if (disabled || onClick) { e.preventDefault(); if (onClick) onClick(); } }}
       style={{
         display: 'block', padding: '20px 22px',
-        background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4,
+        background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0,
         textDecoration: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.4 : 1,
         transition: 'border-color 0.15s',
@@ -98,10 +98,10 @@ export default function DashboardView({ calendars, plan, isSuperAdmin, onNav }) 
               { label: 'Prossimi 14 giorni', value: next14 },
             ].map(({ label, value }) => (
               <div key={label} style={{
-                flex: 1, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4,
+                flex: 1, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0,
                 padding: '16px 20px',
               }}>
-                <div style={{ fontFamily: fontTitle, fontSize: 24, color: T.ink, marginBottom: 4 }}>{value}</div>
+                <div style={{ fontFamily: fontMono, fontSize: 24, fontWeight: 500, color: T.ink, marginBottom: 4 }}>{value}</div>
                 <div style={{ fontFamily: fontBody, fontSize: 12, color: T.muted }}>{label}</div>
               </div>
             ))}
@@ -122,10 +122,10 @@ export default function DashboardView({ calendars, plan, isSuperAdmin, onNav }) 
               { label: 'Lettori',     key: 'user',        color: T.muted },
             ].map(({ label, key, color }) => (
               <div key={key} style={{
-                flex: 1, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4,
+                flex: 1, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0,
                 padding: '16px 20px',
               }}>
-                <div style={{ fontFamily: fontTitle, fontSize: 24, color, marginBottom: 4 }}>
+                <div style={{ fontFamily: fontMono, fontSize: 24, fontWeight: 500, color, marginBottom: 4 }}>
                   {roleCounts[key] ?? 0}
                 </div>
                 <div style={{ fontFamily: fontBody, fontSize: 12, color: T.muted }}>{label}</div>
@@ -133,8 +133,9 @@ export default function DashboardView({ calendars, plan, isSuperAdmin, onNav }) 
             ))}
           </div>
           <p style={{
-            fontFamily: fontBody, fontSize: 12, color: T.muted, margin: '12px 0 0',
-            cursor: 'pointer', textDecoration: 'underline',
+            fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: T.gold, margin: '12px 0 0',
+            cursor: 'pointer', textDecoration: 'none',
           }} onClick={() => onNav('settings')}>
             Gestisci utenti →
           </p>
@@ -144,7 +145,7 @@ export default function DashboardView({ calendars, plan, isSuperAdmin, onNav }) 
       {/* No data message */}
       {!hasData && (
         <div style={{
-          background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4,
+          background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0,
           padding: '32px 24px', textAlign: 'center',
         }}>
           <p style={{ fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, margin: '0 0 8px' }}>

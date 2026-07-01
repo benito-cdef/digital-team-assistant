@@ -44,7 +44,7 @@ function ReportSection({ calendars }) {
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 36 }}>
         {statCards.map(s => (
-          <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 4, padding: '18px 16px' }}>
+          <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 0, padding: '18px 16px' }}>
             <div style={{ fontFamily: fontTitle, fontSize: 32, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.count}</div>
             <div style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: s.color, opacity: 0.7, marginTop: 6 }}>{s.label}</div>
           </div>
@@ -57,7 +57,7 @@ function ReportSection({ calendars }) {
           <h3 style={{ fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, margin: '0 0 10px' }}>
             {sec.title}
           </h3>
-          <div style={{ border: `1px solid ${T.line}`, borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, overflow: 'hidden' }}>
             {sec.items.map((a, i) => (
               <div key={a.id} onClick={() => setModal(a)} style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
@@ -98,7 +98,7 @@ export default function ReportView({ calendars, cloudLoading }) {
       {!hasCalendar && (
         <div style={{
           textAlign: 'center', padding: '60px 24px',
-          background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4, marginBottom: 40,
+          background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0, marginBottom: 40,
         }}>
           <div style={{ fontSize: 28, marginBottom: 12 }}>📅</div>
           <p style={{ fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, margin: 0 }}>

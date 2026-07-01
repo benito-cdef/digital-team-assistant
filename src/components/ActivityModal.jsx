@@ -24,7 +24,7 @@ export default function ActivityModal({ activity, onClose }) {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: T.surface, borderRadius: 4,
+          background: T.surface, borderRadius: 0,
           padding: 32, maxWidth: 480, width: '100%',
           boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
         }}
@@ -71,7 +71,7 @@ export default function ActivityModal({ activity, onClose }) {
           style={{
             marginTop: 24, padding: '8px 20px',
             background: T.ink, color: '#fff',
-            border: 'none', borderRadius: 2,
+            border: 'none', borderRadius: 0,
             fontFamily: fontTitle, fontSize: 11,
             letterSpacing: '0.1em', textTransform: 'uppercase',
             cursor: 'pointer',

@@ -47,15 +47,14 @@ function UsersSection({ userEmail }) {
   return (
     <div>
       {/* Tabella utenti */}
-      <div style={{ border: `1px solid ${T.line}`, borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
+      <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, overflow: 'hidden', marginBottom: 12 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: T.bg }}>
+            <tr style={{ background: T.ink }}>
               {['Email', 'Ruolo', 'Creato il', 'Ultimo accesso', ''].map(h => (
                 <th key={h} style={{
-                  fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
-                  color: T.muted, padding: '10px 14px', textAlign: 'left',
-                  borderBottom: `1px solid ${T.line}`,
+                  fontFamily: fontTitle, fontSize: 9, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase',
+                  color: 'rgba(255,255,255,0.4)', padding: '10px 14px', textAlign: 'left',
                 }}>{h}</th>
               ))}
             </tr>
@@ -75,7 +74,7 @@ function UsersSection({ userEmail }) {
                     style={{
                       fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
                       color: u.role === 'super_admin' ? T.gold : u.role === 'editor' ? T.ink : T.muted,
-                      background: T.surface, border: `1px solid ${T.line}`, borderRadius: 2,
+                      background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0,
                       padding: '3px 8px', cursor: u.email === userEmail ? 'not-allowed' : 'pointer',
                     }}
                   >
@@ -95,7 +94,7 @@ function UsersSection({ userEmail }) {
                     <button onClick={() => handleDelete(u.email)} style={{
                       fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
                       color: T.alert, background: 'transparent', border: `1px solid ${T.alert}`,
-                      borderRadius: 2, padding: '3px 10px', cursor: 'pointer',
+                      borderRadius: 0, padding: '3px 10px', cursor: 'pointer',
                     }}>Rimuovi</button>
                   )}
                 </td>
@@ -110,7 +109,7 @@ function UsersSection({ userEmail }) {
         <button onClick={() => setShowAdd(true)} style={{
           fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
           color: T.ink, background: T.surface, border: `1px solid ${T.line}`,
-          borderRadius: 2, padding: '7px 16px', cursor: 'pointer',
+          borderRadius: 0, padding: '7px 16px', cursor: 'pointer',
         }}>+ Aggiungi utente</button>
       ) : (
         <form onSubmit={handleAdd} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -118,16 +117,16 @@ function UsersSection({ userEmail }) {
             type="email" required value={addEmail} onChange={e => setAddEmail(e.target.value)}
             placeholder="email@goldengoose.com"
             style={{
-              fontFamily: fontBody, fontSize: 13, color: T.ink,
-              border: `1px solid ${T.line}`, borderRadius: 2, padding: '8px 12px',
+              fontFamily: fontMono, fontSize: 13, color: T.ink,
+              border: `1px solid ${T.lineM}`, borderRadius: 0, padding: '8px 12px',
               background: T.surface, outline: 'none',
             }}
-            onFocus={e => e.target.style.borderColor = T.gold}
-            onBlur={e => e.target.style.borderColor = T.line}
+            onFocus={e => { e.target.style.borderColor = T.gold; e.target.style.outline = '2px solid rgba(192,152,80,0.25)'; e.target.style.outlineOffset = '0'; }}
+            onBlur={e => { e.target.style.borderColor = T.lineM; e.target.style.outline = 'none'; }}
           />
           <select value={addRole} onChange={e => setAddRole(e.target.value)} style={{
             fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
-            background: T.surface, border: `1px solid ${T.line}`, borderRadius: 2,
+            background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0,
             padding: '8px 12px', color: T.ink, cursor: 'pointer',
           }}>
             <option value="user">User</option>
@@ -136,13 +135,13 @@ function UsersSection({ userEmail }) {
           </select>
           <button type="submit" style={{
             fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-            background: T.ink, color: '#fff', border: 'none', borderRadius: 2,
-            padding: '8px 16px', cursor: 'pointer', fontWeight: 700,
+            background: T.ink, color: '#fff', border: 'none', borderRadius: 0,
+            padding: '8px 16px', cursor: 'pointer', fontWeight: 600,
           }}>Salva</button>
           <button type="button" onClick={() => setShowAdd(false)} style={{
             fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
             color: T.muted, background: 'transparent', border: `1px solid ${T.line}`,
-            borderRadius: 2, padding: '8px 16px', cursor: 'pointer',
+            borderRadius: 0, padding: '8px 16px', cursor: 'pointer',
           }}>Annulla</button>
         </form>
       )}
@@ -209,11 +208,11 @@ function CondividiSection() {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 20 }}>
         <code style={{
           fontFamily: fontMono, fontSize: 12, color: T.ink, background: T.bg,
-          border: `1px solid ${T.line}`, borderRadius: 2, padding: '8px 12px', flex: 1,
+          border: `1px solid ${T.line}`, borderRadius: 0, padding: '8px 12px', flex: 1,
         }}>{appUrl}</code>
         <button onClick={handleCopy} style={{
           fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-          background: copied ? T.green : T.ink, color: '#fff', border: 'none', borderRadius: 2,
+          background: copied ? T.green : T.ink, color: '#fff', border: 'none', borderRadius: 0,
           padding: '8px 16px', cursor: 'pointer', transition: 'background 0.2s',
         }}>{copied ? '✓ Copiato' : 'Copia'}</button>
       </div>
@@ -222,12 +221,12 @@ function CondividiSection() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 28 }}>
         <a href={`https://wa.me/?text=${waMsg}`} target="_blank" rel="noopener noreferrer" style={{
           fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-          background: '#25D366', color: '#fff', border: 'none', borderRadius: 2,
+          background: '#25D366', color: '#fff', border: 'none', borderRadius: 0,
           padding: '8px 16px', textDecoration: 'none', display: 'inline-block',
         }}>WhatsApp</a>
         <a href={`mailto:?subject=${mailSubject}&body=${mailBody}`} style={{
           fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-          background: T.surface, color: T.ink, border: `1px solid ${T.line}`, borderRadius: 2,
+          background: T.surface, color: T.ink, border: `1px solid ${T.line}`, borderRadius: 0,
           padding: '8px 16px', textDecoration: 'none', display: 'inline-block',
         }}>Email</a>
       </div>
@@ -238,7 +237,7 @@ function CondividiSection() {
           QR Code
         </p>
         <img src={qrSrc} alt="QR Code" width={160} height={160}
-          style={{ border: `1px solid ${T.line}`, borderRadius: 4, display: 'block', marginBottom: 8 }} />
+          style={{ border: `1px solid ${T.line}`, borderRadius: 0, display: 'block', marginBottom: 8 }} />
         <a href={qrSrc} download="DTA_QR.png" style={{
           fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
           color: T.muted, textDecoration: 'underline', fontSize: 11,
@@ -309,8 +308,8 @@ function NuovoCalendarioModal({ onClose, onCreatePlan, availablePlans }) {
   }
 
   const inputStyle = {
-    fontFamily: fontBody, fontSize: 13, color: T.ink,
-    border: `1px solid ${T.line}`, borderRadius: 2, padding: '9px 12px',
+    fontFamily: fontMono, fontSize: 13, color: T.ink,
+    border: `1px solid ${T.lineM}`, borderRadius: 0, padding: '9px 12px',
     background: T.surface, outline: 'none', width: '100%', boxSizing: 'border-box',
   };
 
@@ -320,7 +319,7 @@ function NuovoCalendarioModal({ onClose, onCreatePlan, availablePlans }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
     }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{
-        background: T.surface, border: `1px solid ${T.line}`, borderRadius: 6,
+        background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0,
         width: '100%', maxWidth: 460, padding: 32, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
       }}>
         <h2 style={{ fontFamily: fontTitle, fontSize: 14, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink, margin: '0 0 24px' }}>
@@ -335,8 +334,8 @@ function NuovoCalendarioModal({ onClose, onCreatePlan, availablePlans }) {
             <input type="text" required value={name} onChange={e => handleNameChange(e.target.value)}
               placeholder='Es. "2027", "FY27", "Piano 2027 Draft"'
               style={inputStyle}
-              onFocus={e => e.target.style.borderColor = T.gold}
-              onBlur={e => e.target.style.borderColor = T.line}
+              onFocus={e => { e.target.style.borderColor = T.gold; e.target.style.outline = "2px solid rgba(192,152,80,0.25)"; e.target.style.outlineOffset = "0"; }}
+              onBlur={e => { e.target.style.borderColor = T.lineM; e.target.style.outline = "none"; }}
             />
           </div>
 
@@ -348,8 +347,8 @@ function NuovoCalendarioModal({ onClose, onCreatePlan, availablePlans }) {
               value={isoYear} onChange={e => setIsoYear(e.target.value)}
               placeholder={String(currentYear + 1)}
               style={{ ...inputStyle, width: 140 }}
-              onFocus={e => e.target.style.borderColor = T.gold}
-              onBlur={e => e.target.style.borderColor = T.line}
+              onFocus={e => { e.target.style.borderColor = T.gold; e.target.style.outline = "2px solid rgba(192,152,80,0.25)"; e.target.style.outlineOffset = "0"; }}
+              onBlur={e => { e.target.style.borderColor = T.lineM; e.target.style.outline = "none"; }}
             />
             <p style={{ fontFamily: fontBody, fontSize: 11, color: T.muted, margin: '4px 0 0' }}>
               Determina quante settimane ha l'anno e le date corrispondenti.
@@ -363,8 +362,8 @@ function NuovoCalendarioModal({ onClose, onCreatePlan, availablePlans }) {
             <input type="text" value={desc} onChange={e => setDesc(e.target.value)}
               placeholder="Note sul calendario…"
               style={inputStyle}
-              onFocus={e => e.target.style.borderColor = T.gold}
-              onBlur={e => e.target.style.borderColor = T.line}
+              onFocus={e => { e.target.style.borderColor = T.gold; e.target.style.outline = "2px solid rgba(192,152,80,0.25)"; e.target.style.outlineOffset = "0"; }}
+              onBlur={e => { e.target.style.borderColor = T.lineM; e.target.style.outline = "none"; }}
             />
           </div>
 
@@ -373,8 +372,8 @@ function NuovoCalendarioModal({ onClose, onCreatePlan, availablePlans }) {
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
             <button type="submit" disabled={creating} style={{
               fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
-              background: T.ink, color: '#fff', border: 'none', borderRadius: 2,
-              padding: '10px 24px', cursor: creating ? 'wait' : 'pointer', fontWeight: 700,
+              background: T.ink, color: '#fff', border: 'none', borderRadius: 0,
+              padding: '10px 24px', cursor: creating ? 'wait' : 'pointer', fontWeight: 600,
               opacity: creating ? 0.7 : 1,
             }}>
               {creating ? 'Creazione in corso…' : 'Crea calendario'}
@@ -382,7 +381,7 @@ function NuovoCalendarioModal({ onClose, onCreatePlan, availablePlans }) {
             <button type="button" onClick={onClose} style={{
               fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
               color: T.muted, background: 'transparent', border: `1px solid ${T.line}`,
-              borderRadius: 2, padding: '10px 18px', cursor: 'pointer',
+              borderRadius: 0, padding: '10px 18px', cursor: 'pointer',
             }}>Annulla</button>
           </div>
         </form>
@@ -458,8 +457,8 @@ export default function SettingsView({
         </p>
         <button onClick={() => setShowNewModal(true)} style={{
           fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-          background: T.ink, color: '#fff', border: 'none', borderRadius: 2,
-          padding: '10px 22px', cursor: 'pointer', fontWeight: 700,
+          background: T.ink, color: '#fff', border: 'none', borderRadius: 0,
+          padding: '10px 22px', cursor: 'pointer', fontWeight: 600,
         }}>+ Crea nuovo calendario</button>
       </Section>
 

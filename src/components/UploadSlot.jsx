@@ -170,7 +170,7 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
   if (step === 'saved' && data) {
     return (
       <div style={{
-        border: `1px solid ${T.line}`, borderRadius: 4,
+        border: `1px solid ${T.line}`, borderRadius: 0,
         background: T.surface, padding: 20,
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
@@ -195,8 +195,8 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
           </div>
         </div>
         {/* Mini bar */}
-        <div style={{ marginTop: 12, height: 3, background: accentBg, borderRadius: 2 }}>
-          <div style={{ height: '100%', background: accentColor, borderRadius: 2, width: '100%' }} />
+        <div style={{ marginTop: 12, height: 3, background: accentBg, borderRadius: 0 }}>
+          <div style={{ height: '100%', background: accentColor, borderRadius: 0, width: '100%' }} />
         </div>
       </div>
     );
@@ -205,7 +205,7 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
   // Mapping step
   if (step === 'mapping') {
     return (
-      <div style={{ border: `1px solid ${T.line}`, borderRadius: 4, background: T.surface }}>
+      <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, background: T.surface }}>
         <div style={{ padding: '12px 16px', borderBottom: `1px solid ${T.line}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.muted }}>
             {label} — {filename}
@@ -224,7 +224,7 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
   // Preview text (PDF/PPTX before AI)
   if (step === 'preview_text') {
     return (
-      <div style={{ border: `1px solid ${T.line}`, borderRadius: 4, background: T.surface }}>
+      <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, background: T.surface }}>
         <div style={{ padding: '12px 16px', borderBottom: `1px solid ${T.line}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.muted }}>
             {label} — {filename}
@@ -237,7 +237,7 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
             readOnly value={previewText}
             style={{
               width: '100%', height: 120, resize: 'vertical',
-              border: `1px solid ${T.line}`, borderRadius: 2,
+              border: `1px solid ${T.line}`, borderRadius: 0,
               fontFamily: fontMono, fontSize: 10, color: T.ink2,
               padding: 8, background: T.bg, boxSizing: 'border-box',
             }}
@@ -248,7 +248,7 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={handleAIParse} style={{
               padding: '7px 18px', background: T.ink, color: '#fff',
-              border: 'none', borderRadius: 2,
+              border: 'none', borderRadius: 0,
               fontFamily: fontTitle, fontSize: 11,
               letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
             }}>
@@ -256,7 +256,7 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
             </button>
             <button onClick={reset} style={{
               padding: '7px 14px', background: 'transparent', color: T.muted,
-              border: `1px solid ${T.line}`, borderRadius: 2,
+              border: `1px solid ${T.line}`, borderRadius: 0,
               fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em',
               textTransform: 'uppercase', cursor: 'pointer',
             }}>Annulla</button>
@@ -269,7 +269,7 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
   // AI loading
   if (step === 'ai_loading') {
     return (
-      <div style={{ border: `1px solid ${T.line}`, borderRadius: 4, background: T.surface, padding: 32, textAlign: 'center' }}>
+      <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, background: T.surface, padding: 32, textAlign: 'center' }}>
         <div style={{ fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted }}>
           Analisi AI in corso…
         </div>
@@ -280,7 +280,7 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
   // AI preview
   if (step === 'ai_preview') {
     return (
-      <div style={{ border: `1px solid ${T.line}`, borderRadius: 4, background: T.surface }}>
+      <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, background: T.surface }}>
         <div style={{ padding: '12px 16px', borderBottom: `1px solid ${T.line}` }}>
           <span style={{ fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.muted }}>
             {label} — {aiItems.length} attività trovate dall'AI
@@ -297,14 +297,14 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
         <div style={{ padding: 16, display: 'flex', gap: 8 }}>
           <button onClick={confirmAI} style={{
             padding: '7px 18px', background: T.ink, color: '#fff',
-            border: 'none', borderRadius: 2, fontFamily: fontTitle, fontSize: 11,
+            border: 'none', borderRadius: 0, fontFamily: fontTitle, fontSize: 11,
             letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
           }}>
             Conferma e salva
           </button>
           <button onClick={reset} style={{
             padding: '7px 14px', background: 'transparent', color: T.muted,
-            border: `1px solid ${T.line}`, borderRadius: 2, fontFamily: fontTitle,
+            border: `1px solid ${T.line}`, borderRadius: 0, fontFamily: fontTitle,
             fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
           }}>Annulla</button>
         </div>
@@ -315,7 +315,7 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
   // Error state
   if (step === 'error') {
     return (
-      <div style={{ border: `1px solid ${T.alert}`, borderRadius: 4, background: T.alertBg, padding: 20 }}>
+      <div style={{ border: `1px solid ${T.alert}`, borderRadius: 0, background: T.alertBg, padding: 20 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 12 }}>
           <AlertCircle size={16} color={T.alert} style={{ flexShrink: 0, marginTop: 1 }} />
           <div>
@@ -327,7 +327,7 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
         </div>
         <button onClick={reset} style={{
           padding: '6px 14px', background: T.alert, color: '#fff',
-          border: 'none', borderRadius: 2, fontFamily: fontTitle, fontSize: 11,
+          border: 'none', borderRadius: 0, fontFamily: fontTitle, fontSize: 11,
           letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
         }}>Riprova</button>
       </div>
@@ -343,7 +343,7 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
       onClick={() => inputRef.current?.click()}
       style={{
         border: `2px dashed ${dragging ? accentColor : T.line}`,
-        borderRadius: 4,
+        borderRadius: 0,
         background: dragging ? accentBg : T.surface,
         padding: '28px 20px',
         textAlign: 'center',
@@ -380,5 +380,5 @@ export default function UploadSlot({ label, accent, storageKey, data, onSave, on
 const iconBtn = {
   background: 'transparent', border: 'none',
   cursor: 'pointer', color: T.muted, padding: 4,
-  display: 'flex', alignItems: 'center', borderRadius: 2,
+  display: 'flex', alignItems: 'center', borderRadius: 0,
 };

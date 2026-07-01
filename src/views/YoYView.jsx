@@ -46,7 +46,7 @@ export default function YoYView({ calendars }) {
       </div>
 
       {/* Table */}
-      <div style={{ border: `1px solid ${T.line}`, borderRadius: 4, overflow: 'hidden' }}>
+      <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr', background: T.ink }}>
           {['W', 'Anno corrente', 'Anno precedente'].map(h => (
             <div key={h} style={{ padding: '8px 14px', fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#fff' }}>{h}</div>
@@ -73,11 +73,11 @@ export default function YoYView({ calendars }) {
                 W{wk}
               </div>
               <div style={{ padding: '8px 10px' }}>
-                {isNew && <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.green, background: T.greenBg, border: `1px solid ${T.green}`, borderRadius: 2, padding: '2px 6px', marginBottom: 4, display: 'inline-block' }}>NUOVO</span>}
+                {isNew && <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.green, background: T.greenBg, border: `1px solid ${T.green}`, borderRadius: 0, padding: '2px 6px', marginBottom: 4, display: 'inline-block' }}>NUOVO</span>}
                 {cur.map(a => <ActivityRow key={a.id} a={a} onClick={setModal} />)}
               </div>
               <div style={{ padding: '8px 10px', opacity: isMissing ? 1 : 0.55 }}>
-                {isMissing && <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.alert, background: T.alertBg, border: `1px solid ${T.alert}`, borderRadius: 2, padding: '2px 6px', marginBottom: 4, display: 'inline-block' }}>ASSENTE</span>}
+                {isMissing && <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.alert, background: T.alertBg, border: `1px solid ${T.alert}`, borderRadius: 0, padding: '2px 6px', marginBottom: 4, display: 'inline-block' }}>ASSENTE</span>}
                 {prev.map(a => <ActivityRow key={a.id} a={a} onClick={setModal} />)}
               </div>
             </div>

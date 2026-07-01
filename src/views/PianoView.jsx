@@ -33,7 +33,7 @@ function StrategyLinksBlock({ canEdit, links, onSave }) {
   function save() { onSave(draft.filter(l => (l.label || l.url))); setEditing(false); setDraft([]); }
 
   return (
-    <div style={{ background: T.surface, border: `1px solid ${editing ? T.gold : T.line}`, borderRadius: 4, overflow: 'hidden' }}>
+    <div style={{ background: T.surface, border: `1px solid ${editing ? T.gold : T.line}`, borderRadius: 0, overflow: 'hidden' }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '9px 14px 7px', borderBottom: `1px solid ${T.line}`, background: editing ? T.goldBg : T.bg,
@@ -59,18 +59,18 @@ function StrategyLinksBlock({ canEdit, links, onSave }) {
               <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
                 <input value={l.label || ''} placeholder="Etichetta"
                   onChange={e => setDraft(d => d.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
-                  style={{ flex: 1, padding: '4px 6px', border: `1px solid ${T.gold}`, borderRadius: 2, fontFamily: fontBody, fontSize: 12, background: '#FFFDF5' }} />
+                  style={{ flex: 1, padding: '4px 6px', border: `1px solid ${T.gold}`, borderRadius: 0, fontFamily: fontBody, fontSize: 12, background: T.surface }} />
                 <input value={l.url || ''} placeholder="https://…"
                   onChange={e => setDraft(d => d.map((x, j) => j === i ? { ...x, url: e.target.value } : x))}
-                  style={{ flex: 2, padding: '4px 6px', border: `1px solid ${T.gold}`, borderRadius: 2, fontFamily: fontMono, fontSize: 11, background: '#FFFDF5' }} />
+                  style={{ flex: 2, padding: '4px 6px', border: `1px solid ${T.gold}`, borderRadius: 0, fontFamily: fontMono, fontSize: 11, background: T.surface }} />
                 <button onClick={() => setDraft(d => d.filter((_, j) => j !== i))} title="Rimuovi" style={{
-                  background: 'transparent', border: `1px solid ${T.line}`, borderRadius: 2, padding: 4, cursor: 'pointer', color: T.alert,
+                  background: 'transparent', border: `1px solid ${T.line}`, borderRadius: 0, padding: 4, cursor: 'pointer', color: T.alert,
                 }}><Trash2 size={12} /></button>
               </div>
             ))}
             <button onClick={() => setDraft(d => [...d, { label: '', url: '' }])} style={{
               display: 'flex', alignItems: 'center', gap: 4, marginTop: 4,
-              background: 'transparent', border: `1px dashed ${T.line}`, borderRadius: 2, padding: '5px 10px',
+              background: 'transparent', border: `1px dashed ${T.line}`, borderRadius: 0, padding: '5px 10px',
               cursor: 'pointer', color: T.muted, fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
             }}><Plus size={11} /> Aggiungi link</button>
           </>
@@ -115,7 +115,7 @@ function EditBlock({ title, accent, children, onSave, canEdit = true }) {
   return (
     <div style={{
       background: T.surface, border: `1px solid ${editing ? T.gold : T.line}`,
-      borderRadius: 4, overflow: 'hidden', transition: 'border-color 0.15s',
+      borderRadius: 0, overflow: 'hidden', transition: 'border-color 0.15s',
     }}>
       {/* Section header */}
       <div style={{
@@ -158,11 +158,11 @@ function ActionBtn({ icon, color, label, onClick }) {
       onMouseLeave={() => setHover(false)}
       style={{
         display: 'flex', alignItems: 'center', gap: 4,
-        padding: '3px 8px', borderRadius: 2,
-        border: `1px solid ${hover ? color : T.line}`,
-        background: hover ? (color === T.green ? T.greenBg : T.bg) : 'transparent',
-        color, cursor: 'pointer',
-        fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
+        padding: '3px 8px', borderRadius: 0,
+        border: `1px solid ${color === T.green ? T.green : (hover ? T.gold : T.line)}`,
+        background: color === T.green ? T.greenBg : (hover ? T.goldBg : 'transparent'),
+        color: color === T.green ? T.green : color, cursor: 'pointer',
+        fontFamily: fontTitle, fontSize: 10, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase',
         transition: 'border-color 0.1s, background 0.1s',
       }}
     >
@@ -200,10 +200,12 @@ function Field({ label, value, fieldKey, editing, draft, setDraft, mono = false,
               value={displayVal || ''}
               rows={Math.max(2, Math.ceil((displayVal || '').length / 50))}
               onChange={e => setDraft(d => ({ ...d, [fieldKey]: e.target.value }))}
+              onFocus={e => { e.target.style.outline = '2px solid rgba(192,152,80,0.25)'; e.target.style.outlineOffset = '0'; }}
+              onBlur={e => { e.target.style.outline = 'none'; }}
               style={{
                 ...textStyle, width: '100%', resize: 'vertical',
-                border: `1px solid ${T.gold}`, borderRadius: 2,
-                padding: '4px 6px', background: '#FFFDF5',
+                border: `1px solid ${T.gold}`, borderRadius: 0,
+                padding: '4px 6px', background: T.surface,
                 outline: 'none', boxSizing: 'border-box',
               }}
             />
@@ -211,10 +213,12 @@ function Field({ label, value, fieldKey, editing, draft, setDraft, mono = false,
             <input
               value={displayVal || ''}
               onChange={e => setDraft(d => ({ ...d, [fieldKey]: e.target.value }))}
+              onFocus={e => { e.target.style.outline = '2px solid rgba(192,152,80,0.25)'; e.target.style.outlineOffset = '0'; }}
+              onBlur={e => { e.target.style.outline = 'none'; }}
               style={{
                 ...textStyle, width: '100%',
-                border: `1px solid ${T.gold}`, borderRadius: 2,
-                padding: '4px 6px', background: '#FFFDF5',
+                border: `1px solid ${T.gold}`, borderRadius: 0,
+                padding: '4px 6px', background: T.surface,
                 outline: 'none', boxSizing: 'border-box',
               }}
             />
@@ -281,7 +285,7 @@ function CompRow({ label, value }) {
 
 function CompBlock({ title, children }) {
   return (
-    <div style={{ background: '#F7F5EF', border: `1px solid ${T.line}`, borderRadius: 4, overflow: 'hidden', opacity: 0.92 }}>
+    <div style={{ background: '#F7F5EF', border: `1px solid ${T.line}`, borderRadius: 0, overflow: 'hidden', opacity: 0.92 }}>
       <div style={{ padding: '9px 14px 7px', borderBottom: `1px solid ${T.line}`, background: '#EFEDE7' }}>
         <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>{title}</span>
       </div>
@@ -295,7 +299,7 @@ function ComparisonColumn({ comparisonWeek: cw, planYear }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Header */}
-      <div style={{ background: '#EFEDE7', border: `1px solid ${T.line}`, borderRadius: 4, padding: '16px 16px 14px' }}>
+      <div style={{ background: '#EFEDE7', border: `1px solid ${T.line}`, borderRadius: 0, padding: '16px 16px 14px' }}>
         <div style={{ fontFamily: fontMono, fontSize: 10, color: T.muted, marginBottom: 3 }}>Confronto</div>
         <div style={{ fontFamily: fontTitle, fontSize: 22, fontWeight: 700, color: T.muted, letterSpacing: '-0.02em', lineHeight: 1 }}>
           W{cw.week} · {prevYear}
@@ -394,11 +398,11 @@ export default function PianoView({ plan, comparisonPlan, onChange, initialWeekP
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
         {['detail','overview'].map(m => (
           <button key={m} onClick={() => setViewMode(m)} style={{
-            padding: '5px 14px', borderRadius: 2,
+            padding: '5px 14px', borderRadius: 0,
             background: viewMode === m ? T.ink : T.surface,
             color: viewMode === m ? '#fff' : T.muted,
-            border: `1px solid ${T.line}`, cursor: 'pointer',
-            fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+            border: `1px solid ${viewMode === m ? T.ink : T.line}`, cursor: 'pointer',
+            fontFamily: fontTitle, fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase',
           }}>{m === 'detail' ? 'Dettaglio settimana' : 'Panoramica mesi'}</button>
         ))}
 
@@ -468,14 +472,14 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
 
         {/* Week header — no ghost overlapping arrows */}
         <div style={{
-          background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4,
+          background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0,
           padding: '16px 16px 14px', position: 'relative', overflow: 'hidden',
         }}>
           {/* Ghost behind content, left-aligned so arrows stay clear */}
           <div style={{
-            position: 'absolute', left: -4, top: -10,
-            fontFamily: fontTitle, fontSize: 90, fontWeight: 900,
-            color: T.ink, opacity: 0.04, lineHeight: 1,
+            position: 'absolute', left: -4, top: -20,
+            fontFamily: fontTitle, fontSize: 180, fontWeight: 700,
+            color: 'rgba(17,17,16,0.03)', lineHeight: 1,
             userSelect: 'none', pointerEvents: 'none', letterSpacing: '-0.04em',
           }}>W{cur.week}</div>
 
@@ -497,7 +501,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
               <button onClick={() => setShowHistory(s => !s)} title="Cronologia modifiche" style={{
                 width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: showHistory ? T.goldBg : T.bg, border: `1px solid ${showHistory ? T.gold : T.line}`,
-                borderRadius: 2, cursor: 'pointer', color: showHistory ? T.gold : T.muted, padding: 0,
+                borderRadius: 0, cursor: 'pointer', color: showHistory ? T.gold : T.muted, padding: 0,
               }}><History size={14} /></button>
               <CopyLinkBtn week={cur.week} />
               <NavBtn onClick={() => setWeekIdx(i => Math.max(0, i - 1))} disabled={weekIdx === 0}>
@@ -512,7 +516,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
 
         {/* History panel */}
         {showHistory && (
-          <div style={{ background: T.surface, border: `1px solid ${T.gold}`, borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ background: T.surface, border: `1px solid ${T.gold}`, borderRadius: 0, overflow: 'hidden' }}>
             <div style={{ padding: '9px 14px 7px', borderBottom: `1px solid ${T.line}`, background: T.goldBg }}>
               <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.gold }}>
                 Cronologia modifiche · W{cur.week}
@@ -565,7 +569,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 400,
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out',
           }}>
-            <img src={imgModal} alt="full" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 4 }} />
+            <img src={imgModal} alt="full" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 0 }} />
           </div>
         )}
 
@@ -589,7 +593,7 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
 
         {/* Performance — read only */}
         {hasPerf && (
-          <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0, overflow: 'hidden' }}>
             <div style={{ padding: '9px 14px 7px', borderBottom: `1px solid ${T.line}`, background: T.bg }}>
               <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>Performance eCom</span>
             </div>
@@ -684,7 +688,7 @@ function OverviewMode({ weeks, onSelect }) {
   const today = new Date(); today.setHours(0,0,0,0);
 
   return (
-    <div style={{ border: `1px solid ${T.line}`, borderRadius: 4, overflow: 'hidden' }}>
+    <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, overflow: 'hidden' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '56px 90px 1fr 1fr 1fr', background: T.ink, padding: '8px 14px' }}>
         {['W','Date','Topic 2026','Main Campaign','Commercial'].map(h => (
           <div key={h} style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#fff' }}>{h}</div>
@@ -751,7 +755,7 @@ function NavBtn({ onClick, disabled, children }) {
     <button onClick={onClick} disabled={disabled} style={{
       width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: disabled ? T.line : T.bg,
-      border: `1px solid ${T.line}`, borderRadius: 2,
+      border: `1px solid ${T.line}`, borderRadius: 0,
       cursor: disabled ? 'not-allowed' : 'pointer',
       color: disabled ? T.muted : T.ink, padding: 0,
     }}>{children}</button>
@@ -772,7 +776,7 @@ function CopyLinkBtn({ week }) {
   return (
     <button onClick={copy} title={`Copia link W${week}`} style={{
       display: 'flex', alignItems: 'center', gap: 4,
-      padding: '4px 8px', borderRadius: 2,
+      padding: '4px 8px', borderRadius: 0,
       border: `1px solid ${copied ? T.green : T.line}`,
       background: copied ? T.greenBg : T.bg,
       color: copied ? T.green : T.muted,
@@ -808,7 +812,7 @@ function ExportButton({ plan, year }) {
       disabled={exporting}
       style={{
         display: 'flex', alignItems: 'center', gap: 6,
-        padding: '5px 14px', borderRadius: 2,
+        padding: '5px 14px', borderRadius: 0,
         background: done ? T.greenBg : T.surface,
         color: done ? T.green : T.ink2,
         border: `1px solid ${done ? T.green : T.line}`,

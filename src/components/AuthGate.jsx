@@ -80,8 +80,8 @@ export default function AuthGate({ children }) {
           <span style={{ fontFamily: fontMono, fontSize: 10, color: T.muted }}>{authed}</span>
           <button onClick={handleSignOut} style={{
             fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: T.muted, background: 'transparent', border: `1px solid #333`,
-            borderRadius: 2, padding: '3px 10px', cursor: 'pointer',
+            color: T.muted, background: 'transparent', border: `1px solid rgba(255,255,255,0.2)`,
+            borderRadius: 0, padding: '3px 10px', cursor: 'pointer',
           }}>Esci</button>
         </div>
         {typeof children === 'function'
@@ -101,7 +101,12 @@ export default function AuthGate({ children }) {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div style={{ fontSize: 28, color: T.gold, marginBottom: 8 }}>★</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: T.ink }}>
+            <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+              <rect x="1.5" y="1.5" width="45" height="45" stroke="currentColor" strokeWidth="1.5" />
+              <rect x="24" y="24" width="21" height="21" fill="#C09850" />
+            </svg>
+          </div>
           <h1 style={{ fontFamily: fontTitle, fontSize: 16, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.ink, margin: '0 0 6px' }}>
             Digital Team Assistant
           </h1>
@@ -109,7 +114,7 @@ export default function AuthGate({ children }) {
         </div>
 
         {/* Card */}
-        <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4, padding: 32 }}>
+        <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0, padding: 32 }}>
 
           {!blocked ? (
             <>
@@ -129,23 +134,26 @@ export default function AuthGate({ children }) {
                   autoFocus
                   style={{
                     width: '100%', padding: '10px 12px', marginBottom: 16,
-                    border: `1px solid ${T.line}`, borderRadius: 2,
-                    fontFamily: fontBody, fontSize: 14, color: T.ink,
+                    border: `1px solid ${T.lineM}`, borderRadius: 0,
+                    fontFamily: fontMono, fontSize: 14, color: T.ink,
                     outline: 'none', boxSizing: 'border-box', background: T.surface,
                   }}
-                  onFocus={e => e.target.style.borderColor = T.gold}
-                  onBlur={e => e.target.style.borderColor = T.line}
+                  onFocus={e => { e.target.style.borderColor = T.gold; e.target.style.outline = `2px solid rgba(192,152,80,0.25)`; e.target.style.outlineOffset = '0'; }}
+                  onBlur={e => { e.target.style.borderColor = T.lineM; e.target.style.outline = 'none'; }}
                 />
                 <button
                   type="submit"
                   disabled={!email || verifying}
                   style={{
                     width: '100%', padding: '11px 0',
-                    background: T.ink, color: '#fff',
-                    border: 'none', borderRadius: 2, cursor: verifying ? 'wait' : 'pointer',
-                    fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
-                    fontWeight: 700, opacity: verifying ? 0.7 : 1,
+                    background: (!email || verifying) ? T.line : T.ink,
+                    color: (!email || verifying) ? T.lineS : '#fff',
+                    border: 'none', borderRadius: 0, cursor: verifying ? 'wait' : (!email ? 'not-allowed' : 'pointer'),
+                    fontFamily: fontTitle, fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase',
+                    fontWeight: 600, transition: 'background 0.15s',
                   }}
+                  onMouseEnter={e => { if (email && !verifying) { e.currentTarget.style.background = T.n700; e.currentTarget.style.outline = '3px solid rgba(192,152,80,0.3)'; e.currentTarget.style.outlineOffset = '0'; } }}
+                  onMouseLeave={e => { e.currentTarget.style.background = (!email || verifying) ? T.line : T.ink; e.currentTarget.style.outline = 'none'; }}
                 >
                   {verifying ? 'Verifica accesso…' : 'Accedi →'}
                 </button>
@@ -162,9 +170,9 @@ export default function AuthGate({ children }) {
                 Usa la tua email <strong>@{ALLOWED_DOMAIN}</strong>.
               </p>
               <button onClick={() => { setBlocked(false); setEmail(''); }} style={{
-                fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-                color: T.ink, background: T.surface, border: `1px solid ${T.line}`,
-                borderRadius: 2, padding: '7px 16px', cursor: 'pointer',
+                fontFamily: fontTitle, fontSize: 11, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase',
+                color: T.ink, background: T.surface, border: `1px solid ${T.lineM}`,
+                borderRadius: 0, padding: '7px 16px', cursor: 'pointer',
               }}>
                 ← Riprova
               </button>
