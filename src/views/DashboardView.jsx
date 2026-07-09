@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
 import { getCurrentISOWeek, getCurrentISOYear, getWeekRange, formatWeekRangeLong } from '../utils/isoWeek.js';
+import { fakeEuro, fakeDelta } from '../utils/demo.js';
 
 // ── Date helpers ────────────────────────────────────────────────────────────
 const IT_DAYS   = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -175,7 +176,7 @@ function Block1({ currentWeek, weekNum, planYear, onNav, loading }) {
 }
 
 // ── Block 2 — Performance snapshot ───────────────────────────────────────────
-function Block2({ currentWeek, previousWeeks, loading }) {
+function Block2({ currentWeek, previousWeeks, loading, demoMode }) {
   if (loading) return <Skeleton height={140} />;
 
   const p = currentWeek?.performance;
@@ -189,15 +190,24 @@ function Block2({ currentWeek, previousWeeks, loading }) {
     </div>
   );
 
+  const actual  = demoMode ? fakeEuro(p.ecomActual, 1)  : p.ecomActual;
+  const budget  = demoMode ? fakeEuro(p.ecomBudget, 2)  : p.ecomBudget;
+  const delta   = demoMode ? fakeDelta(3)                : p.ecomDeltaBdg;
+
   const kpis = [
-    { label:'Actual',      value:fmtEuro(p.ecomActual),  color:T.ink },
-    { label:'Budget',      value:fmtEuro(p.ecomBudget),  color:T.lineS },
-    { label:'Δ vs Budget', value:fmtPct(p.ecomDeltaBdg), color:deltaColor(p.ecomDeltaBdg) },
+    { label:'Actual',      value:fmtEuro(actual), color:T.ink },
+    { label:'Budget',      value:fmtEuro(budget), color:T.lineS },
+    { label:'Δ vs Budget', value:fmtPct(delta),   color:deltaColor(delta) },
   ];
   const trendWeeks = previousWeeks.filter(w => w.performance?.ecomDeltaBdg !== null && w.performance?.ecomDeltaBdg !== undefined).slice(-4);
 
   return (
     <div style={{ background:T.surface, border:`1px solid ${T.line}`, borderRadius:0, overflow:'hidden' }}>
+      {demoMode && (
+        <div style={{ padding:'5px 16px', background:T.goldBg, borderBottom:`1px solid ${T.gold}`, fontFamily:fontTitle, fontSize:9, letterSpacing:'0.14em', textTransform:'uppercase', color:T.goldDark }}>
+          Modalità Demo — dati finanziari oscurati
+        </div>
+      )}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)' }}>
         {kpis.map(({ label, value, color }, i) => (
           <div key={label} style={{ padding:'20px 20px 16px', borderRight: i < 2 ? `1px solid ${T.line}` : 'none' }}>
@@ -209,14 +219,17 @@ function Block2({ currentWeek, previousWeeks, loading }) {
       {trendWeeks.length > 0 && (
         <div style={{ borderTop:`1px solid ${T.line}`, padding:'10px 20px', display:'flex', gap:24, alignItems:'center' }}>
           <div style={{ fontFamily:fontTitle, fontSize:9, letterSpacing:'0.16em', textTransform:'uppercase', color:T.muted }}>Trend</div>
-          {trendWeeks.map(w => (
-            <div key={w.week} style={{ display:'flex', flexDirection:'column', gap:2 }}>
-              <div style={{ fontFamily:fontMono, fontSize:9, color:T.muted }}>W{w.week}</div>
-              <div style={{ fontFamily:fontMono, fontSize:10, fontWeight:500, color:deltaColor(w.performance.ecomDeltaBdg) }}>
-                {fmtPct(w.performance.ecomDeltaBdg)}
+          {trendWeeks.map((w, i) => {
+            const d = demoMode ? fakeDelta(w.week + 10 + i) : w.performance.ecomDeltaBdg;
+            return (
+              <div key={w.week} style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                <div style={{ fontFamily:fontMono, fontSize:9, color:T.muted }}>W{w.week}</div>
+                <div style={{ fontFamily:fontMono, fontSize:10, fontWeight:500, color:deltaColor(d) }}>
+                  {fmtPct(d)}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -341,7 +354,7 @@ function Block5({ alerts, loading }) {
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
-export default function DashboardView({ calendars, plan, isSuperAdmin, onNav, cloudLoading, planYear }) {
+export default function DashboardView({ calendars, plan, isSuperAdmin, onNav, cloudLoading, planYear, demoMode = false }) {
   const weekNum      = getCurrentISOWeek();
   const resolvedYear = planYear ?? getCurrentISOYear();
   const today        = new Date();
@@ -381,7 +394,7 @@ export default function DashboardView({ calendars, plan, isSuperAdmin, onNav, cl
 
         <section>
           <SectionLabel>Performance eCom · W{weekNum}</SectionLabel>
-          <Block2 currentWeek={currentWeek} previousWeeks={previousWeeks} loading={loading} />
+          <Block2 currentWeek={currentWeek} previousWeeks={previousWeeks} loading={loading} demoMode={demoMode} />
         </section>
 
         <section>

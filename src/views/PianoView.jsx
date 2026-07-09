@@ -4,6 +4,7 @@ import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
 import { exportToExcel } from '../utils/exportCalendar.js';
 import { parseWeekParam } from '../utils/router.js';
 import { getPlanChanges } from '../utils/db.js';
+import { fakeEuro, fakeDelta } from '../utils/demo.js';
 
 const MONTHS_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
                    'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
@@ -419,7 +420,7 @@ function ComparisonColumn({ comparisonWeek: cw, planYear }) {
 
 // ── Main view ──────────────────────────────────────────────
 
-export default function PianoView({ plan, comparisonPlan, onChange, initialWeekParam, onWeekChange, isEditor, userEmail, planYear }) {
+export default function PianoView({ plan, comparisonPlan, onChange, initialWeekParam, onWeekChange, isEditor, userEmail, planYear, demoMode = false }) {
   const { weeks } = plan;
   const resolvedPlanYear = planYear ?? plan.year ?? plan.isoYear ?? new Date().getFullYear();
 
@@ -516,6 +517,7 @@ export default function PianoView({ plan, comparisonPlan, onChange, initialWeekP
           canEdit={!!isEditor}
           planYear={resolvedPlanYear}
           comparisonWeek={comparisonPlan?.weeks?.find(w => w.week === cur.week) ?? null}
+          demoMode={demoMode}
         />
       ) : (
         <OverviewMode weeks={weeks} onSelect={i => { setWeekIdx(i); setViewMode('detail'); }} />
@@ -526,7 +528,7 @@ export default function PianoView({ plan, comparisonPlan, onChange, initialWeekP
 
 // ── Detail view ────────────────────────────────────────────
 
-function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChange, canEdit, planYear, comparisonWeek }) {
+function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChange, canEdit, planYear, comparisonWeek, demoMode = false }) {
   const hasPerf = cur.performance.ecomLY !== null || cur.performance.ecomActual !== null;
   const monthName = MONTHS_IT[date.getMonth()];
   const [showHistory, setShowHistory] = useState(false);
@@ -679,13 +681,16 @@ function DetailView({ cur, weekIdx, weeks, setWeekIdx, date, onBlockSave, onChan
         {/* Performance — read only */}
         {hasPerf && (
           <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '9px 14px 7px', borderBottom: `1px solid ${T.line}`, background: T.bg }}>
+            <div style={{ padding: '9px 14px 7px', borderBottom: `1px solid ${T.line}`, background: demoMode ? T.goldBg : T.bg, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
               <span style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>Performance eCom</span>
+              {demoMode && <span style={{ fontFamily: fontTitle, fontSize: 8, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.goldDark }}>Demo</span>}
             </div>
             <div style={{ paddingBottom: 6 }}>
-              <KpiRow label="LY"         value={cur.performance.ecomLY} />
-              <KpiRow label="Budget"     value={cur.performance.ecomBudget} delta={cur.performance.ecomDeltaBdg} positive />
-              <KpiRow label="Actual '26" value={cur.performance.ecomActual} delta={cur.performance.ecomDeltaAct} positive />
+              <KpiRow label="LY"     value={demoMode ? fakeEuro(cur.performance.ecomLY, cur.week)     : cur.performance.ecomLY} />
+              <KpiRow label="Budget" value={demoMode ? fakeEuro(cur.performance.ecomBudget, cur.week + 50) : cur.performance.ecomBudget}
+                                     delta={demoMode ? fakeDelta(cur.week + 100) : cur.performance.ecomDeltaBdg} positive />
+              <KpiRow label="Actual" value={demoMode ? fakeEuro(cur.performance.ecomActual, cur.week + 200) : cur.performance.ecomActual}
+                                     delta={demoMode ? fakeDelta(cur.week + 300) : cur.performance.ecomDeltaAct} positive />
             </div>
           </div>
         )}

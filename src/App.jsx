@@ -82,6 +82,7 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
   const [selectedPlan, setSelectedPlan]     = useState(null); // record dal manifest
   const [cloudLoading, setCloudLoading] = useState(true);
   const [cloudSaving,  setCloudSaving]  = useState(false);
+  const [demoMode, setDemoMode]         = useState(false);
 
   // ── Carica manifest al mount ──────────────────────────────────────────────
   useEffect(() => {
@@ -221,6 +222,7 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
         view={view} onView={v => navigate(v)} hasPlan={!!plan} isSuperAdmin={isSuperAdmin} userEmail={userEmail}
         availablePlans={availablePlans} selectedPlan={selectedPlan}
         onSelectPlan={p => { setSelectedPlan(p); navigate('piano'); }}
+        demoMode={demoMode} onToggleDemo={() => setDemoMode(m => !m)}
       />
 
       {cloudSaving && (
@@ -244,6 +246,7 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
             onNav={(v, p) => navigate(v, p)}
             cloudLoading={cloudLoading}
             planYear={planYear}
+            demoMode={demoMode}
           />
         )}
 
@@ -290,6 +293,7 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
             isEditor={isEditor}
             userEmail={userEmail}
             planYear={planYear}
+            demoMode={demoMode}
           />
         )}
         {view === 'piano' && !plan && !cloudLoading && (
