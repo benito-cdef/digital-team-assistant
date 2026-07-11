@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
+import KnowledgeBaseView from './KnowledgeBaseView.jsx';
 import { getAllUsers, updateUserRole, upsertUser, deleteUser } from '../utils/db.js';
 import { getCurrentISOYear, getWeeksInYear, weekToMonday, formatWeekRangeLong } from '../utils/isoWeek.js';
 import { detectISOYear } from '../utils/cloudStorage.js';
@@ -500,16 +501,7 @@ export default function SettingsView({
 }) {
   const [showNewModal, setShowNewModal] = useState(false);
 
-  if (!isSuperAdmin && !isEditor) {
-    return (
-      <div style={{ maxWidth: 600, margin: '80px auto', padding: '0 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 16 }}>🔒</div>
-        <p style={{ fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted }}>
-          Accesso riservato agli editor
-        </p>
-      </div>
-    );
-  }
+  const canAdmin = isSuperAdmin || isEditor;
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '40px 24px 80px' }}>
@@ -517,43 +509,51 @@ export default function SettingsView({
         Settings
       </h1>
 
-      {isSuperAdmin && (
+      {canAdmin && isSuperAdmin && (
         <Section title="Utenti">
           <UsersSection userEmail={userEmail} />
         </Section>
       )}
 
-      <Section title="Calendari">
-        <CalendariSection
-          calendars={calendars}
-          onCalendarChange={onCalendarChange}
-          onPlanReady={onPlanReady}
-          plan={plan}
-        />
-      </Section>
+      {canAdmin && (
+        <>
+          <Section title="Calendari">
+            <CalendariSection
+              calendars={calendars}
+              onCalendarChange={onCalendarChange}
+              onPlanReady={onPlanReady}
+              plan={plan}
+            />
+          </Section>
 
-      <Section title="Condividi">
-        <CondividiSection />
-      </Section>
+          <Section title="Condividi">
+            <CondividiSection />
+          </Section>
 
-      {availablePlans && availablePlans.length > 0 && onRenamePlan && (
-        <Section title="Piani disponibili">
-          <PianiSection availablePlans={availablePlans} onRenamePlan={onRenamePlan} />
-        </Section>
+          {availablePlans && availablePlans.length > 0 && onRenamePlan && (
+            <Section title="Piani disponibili">
+              <PianiSection availablePlans={availablePlans} onRenamePlan={onRenamePlan} />
+            </Section>
+          )}
+
+          <Section title="Nuovo calendario">
+            <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted, margin: '0 0 16px', lineHeight: 1.6 }}>
+              Crea un nuovo piano annuale con nome libero. Le settimane vengono generate automaticamente secondo ISO 8601.
+              {availablePlans.length > 0 && (
+                <> Esistenti: {availablePlans.map(p => p.name).join(', ')}.</>
+              )}
+            </p>
+            <button onClick={() => setShowNewModal(true)} style={{
+              fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+              background: T.ink, color: '#fff', border: 'none', borderRadius: 0,
+              padding: '10px 22px', cursor: 'pointer', fontWeight: 600,
+            }}>+ Crea nuovo calendario</button>
+          </Section>
+        </>
       )}
 
-      <Section title="Nuovo calendario">
-        <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted, margin: '0 0 16px', lineHeight: 1.6 }}>
-          Crea un nuovo piano annuale con nome libero. Le settimane vengono generate automaticamente secondo ISO 8601.
-          {availablePlans.length > 0 && (
-            <> Esistenti: {availablePlans.map(p => p.name).join(', ')}.</>
-          )}
-        </p>
-        <button onClick={() => setShowNewModal(true)} style={{
-          fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-          background: T.ink, color: '#fff', border: 'none', borderRadius: 0,
-          padding: '10px 22px', cursor: 'pointer', fontWeight: 600,
-        }}>+ Crea nuovo calendario</button>
+      <Section title="Knowledge Base">
+        <KnowledgeBaseView isEditor={isEditor} isSuperAdmin={isSuperAdmin} userEmail={userEmail} embedded />
       </Section>
 
       {showNewModal && (

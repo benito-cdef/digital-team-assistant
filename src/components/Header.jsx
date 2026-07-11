@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { BookOpen } from 'lucide-react';
 import { T, fontTitle, fontBody } from '../tokens.js';
 
 const NAV = [
@@ -8,7 +7,6 @@ const NAV = [
   { id: 'piano',     label: 'Piano', planRequired: true },
   { id: 'yoy',       label: 'Anno su Anno' },
   { id: 'report',    label: 'Report' },
-  { id: 'docs',      label: 'Knowledge Base', icon: true },
 ];
 
 function LogoMark({ size = 26 }) {
@@ -150,7 +148,6 @@ export default function Header({ view, onView, hasPlan, isSuperAdmin, availableP
               onMouseEnter={e => { if (!disabled && !active) e.currentTarget.style.color = T.ink; }}
               onMouseLeave={e => { if (!disabled && !active) e.currentTarget.style.color = T.muted; }}
             >
-              {v.icon && <BookOpen size={12} />}
               {v.label}
               {v.planRequired && hasPlan && (
                 <span style={{ display: 'inline-block', width: 4, height: 4, background: T.gold, borderRadius: 999, marginLeft: 4, verticalAlign: 'middle' }} />

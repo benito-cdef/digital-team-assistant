@@ -878,26 +878,28 @@ const TABS = [
   { id: 'roadmap',      label: 'Roadmap futura' },
 ];
 
-export default function KnowledgeBaseView({ isEditor, isSuperAdmin, userEmail }) {
+export default function KnowledgeBaseView({ isEditor, isSuperAdmin, userEmail, embedded = false }) {
   const [tab, setTab] = useState('panoramica');
   const canEdit = isEditor || isSuperAdmin;
   const isMobile = window.innerWidth < 600;
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 24px 80px' }}>
+    <div style={embedded ? {} : { maxWidth: 860, margin: '0 auto', padding: '32px 24px 80px' }}>
 
-      {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase', color: T.gold, marginBottom: 4 }}>
-          Golden Goose Digital
+      {/* Header — solo se non embedded */}
+      {!embedded && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase', color: T.gold, marginBottom: 4 }}>
+            Golden Goose Digital
+          </div>
+          <h1 style={{ fontFamily: fontTitle, fontSize: 28, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: T.ink, margin: '0 0 6px' }}>
+            Knowledge Base
+          </h1>
+          <div style={{ fontFamily: fontBody, fontSize: 13, color: T.muted }}>
+            Documentazione tecnica e strategica del Digital Team Assistant
+          </div>
         </div>
-        <h1 style={{ fontFamily: fontTitle, fontSize: 28, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: T.ink, margin: '0 0 6px' }}>
-          Knowledge Base
-        </h1>
-        <div style={{ fontFamily: fontBody, fontSize: 13, color: T.muted }}>
-          Documentazione tecnica e strategica del Digital Team Assistant
-        </div>
-      </div>
+      )}
 
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${T.line}`, marginBottom: 32 }}>
