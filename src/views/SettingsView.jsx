@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
-import KnowledgeBaseView from './KnowledgeBaseView.jsx';
 import { getAllUsers, updateUserRole, upsertUser, deleteUser } from '../utils/db.js';
 import { getCurrentISOYear, getWeeksInYear, weekToMonday, formatWeekRangeLong } from '../utils/isoWeek.js';
 import { detectISOYear } from '../utils/cloudStorage.js';
@@ -554,7 +553,32 @@ export default function SettingsView({
 
       {isSuperAdmin && (
         <Section title="Knowledge Base">
-          <KnowledgeBaseView isEditor={isEditor} isSuperAdmin={isSuperAdmin} userEmail={userEmail} embedded />
+          <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '24px 28px', background: T.surface, display: 'flex', gap: 32, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ fontFamily: fontTitle, fontSize: 14, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink, fontWeight: 700, marginBottom: 8 }}>
+                  Documentazione del progetto
+                </div>
+                <p style={{ fontFamily: fontBody, fontSize: 13, color: T.ink2, lineHeight: 1.65, margin: 0 }}>
+                  Panoramica non tecnica dello strumento, documentazione tecnica completa (stack, modello dati, flussi), changelog degli sviluppi e una sezione roadmap editabile per pianificare i prossimi sviluppi.
+                </p>
+              </div>
+              <a href="#/docs" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+                background: T.ink, color: '#fff', border: 'none', borderRadius: 0,
+                padding: '11px 22px', cursor: 'pointer', fontWeight: 600, textDecoration: 'none',
+                flexShrink: 0,
+              }}>
+                Apri Knowledge Base →
+              </a>
+            </div>
+            <div style={{ borderTop: `1px solid ${T.line}`, padding: '10px 28px', background: T.bg, display: 'flex', gap: 24 }}>
+              {['Panoramica', 'Documentazione tecnica', 'Changelog', 'Roadmap futura'].map(s => (
+                <span key={s} style={{ fontFamily: fontMono, fontSize: 10, color: T.muted }}>{s}</span>
+              ))}
+            </div>
+          </div>
         </Section>
       )}
 
