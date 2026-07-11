@@ -552,9 +552,11 @@ export default function SettingsView({
         </>
       )}
 
-      <Section title="Knowledge Base">
-        <KnowledgeBaseView isEditor={isEditor} isSuperAdmin={isSuperAdmin} userEmail={userEmail} embedded />
-      </Section>
+      {isSuperAdmin && (
+        <Section title="Knowledge Base">
+          <KnowledgeBaseView isEditor={isEditor} isSuperAdmin={isSuperAdmin} userEmail={userEmail} embedded />
+        </Section>
+      )}
 
       {showNewModal && (
         <NuovoCalendarioModal
