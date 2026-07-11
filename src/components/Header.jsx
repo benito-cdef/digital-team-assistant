@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
+import { BookOpen } from 'lucide-react';
 import { T, fontTitle, fontBody } from '../tokens.js';
-import { EyeOff, Eye } from 'lucide-react';
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -8,6 +8,7 @@ const NAV = [
   { id: 'piano',     label: 'Piano', planRequired: true },
   { id: 'yoy',       label: 'Anno su Anno' },
   { id: 'report',    label: 'Report' },
+  { id: 'docs',      label: 'Knowledge Base', icon: true },
 ];
 
 function LogoMark({ size = 26 }) {
@@ -100,7 +101,7 @@ function PlanDropdown({ availablePlans, selectedPlan, onSelectPlan }) {
   );
 }
 
-export default function Header({ view, onView, hasPlan, isSuperAdmin, availablePlans, selectedPlan, onSelectPlan, userEmail, demoMode, onToggleDemo }) {
+export default function Header({ view, onView, hasPlan, isSuperAdmin, availablePlans, selectedPlan, onSelectPlan, userEmail }) {
   const views = NAV;
   return (
     <header style={{
@@ -134,7 +135,7 @@ export default function Header({ view, onView, hasPlan, isSuperAdmin, availableP
               onClick={e => { if (disabled) e.preventDefault(); }}
               title={disabled ? 'Carica il MASTER CALENDAR per accedere' : ''}
               style={{
-                display: 'flex', alignItems: 'center',
+                display: 'flex', alignItems: 'center', gap: 5,
                 color: active ? T.ink : (disabled ? T.lineS : T.muted),
                 textDecoration: 'none',
                 cursor: disabled ? 'not-allowed' : 'pointer',
@@ -149,6 +150,7 @@ export default function Header({ view, onView, hasPlan, isSuperAdmin, availableP
               onMouseEnter={e => { if (!disabled && !active) e.currentTarget.style.color = T.ink; }}
               onMouseLeave={e => { if (!disabled && !active) e.currentTarget.style.color = T.muted; }}
             >
+              {v.icon && <BookOpen size={12} />}
               {v.label}
               {v.planRequired && hasPlan && (
                 <span style={{ display: 'inline-block', width: 4, height: 4, background: T.gold, borderRadius: 999, marginLeft: 4, verticalAlign: 'middle' }} />
@@ -176,28 +178,7 @@ export default function Header({ view, onView, hasPlan, isSuperAdmin, availableP
             onMouseLeave={e => { if (view !== 'settings') { e.currentTarget.style.borderColor = T.line; e.currentTarget.style.color = T.muted; } }}
           >⚙</button>
         )}
-        {/* Demo mode toggle */}
-        <button
-          onClick={onToggleDemo}
-          title={demoMode ? 'Dati oscurati — clicca per mostrare i valori reali' : 'Clicca per oscurare i dati finanziari'}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '4px 9px', borderRadius: 0,
-            background: demoMode ? T.goldBg : 'transparent',
-            color: demoMode ? T.goldDark : T.muted,
-            border: `1px solid ${demoMode ? T.gold : T.line}`,
-            cursor: 'pointer', fontFamily: fontTitle, fontSize: 9,
-            letterSpacing: '0.12em', textTransform: 'uppercase',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { if (!demoMode) { e.currentTarget.style.borderColor = T.gold; e.currentTarget.style.color = T.ink; } }}
-          onMouseLeave={e => { if (!demoMode) { e.currentTarget.style.borderColor = T.line; e.currentTarget.style.color = T.muted; } }}
-        >
-          {demoMode ? <EyeOff size={11} /> : <Eye size={11} />}
-          {demoMode ? 'Demo' : 'Demo'}
-        </button>
-
-        <div title={userEmail} style={{
+<div title={userEmail} style={{
           width: 30, height: 30, borderRadius: '50%',
           background: T.ink, color: '#fff',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
