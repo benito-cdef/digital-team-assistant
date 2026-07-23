@@ -7,34 +7,30 @@
  *   calendars.json      → attività commerciali e brand
  */
 
-const SUPABASE_URL  = 'https://xnekmhtmapkxzcrdzhoh.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZWttaHRtYXBreHpjcmR6aG9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzU1NTAsImV4cCI6MjA5NzcxMTU1MH0.YY6pXD3Icr_s5HpCDrE-J9466oZdw9jIVqXuj_RluS8';
+import { supabase } from '../supabase.js';
+
 const BUCKET = 'calendar-data';
 
 async function cloudLoad(fileName) {
   try {
-    const url = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}?t=${Date.now()}`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return await res.json();
+    const { data, error } = await supabase.storage.from(BUCKET).download(fileName);
+    if (error) {
+      if (error.statusCode === '404' || error.status === 404) return null;
+      throw error;
+    }
+    return JSON.parse(await data.text());
   } catch {
     return null;
   }
 }
 
 async function cloudSave(fileName, data) {
-  const url = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`;
-  const headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${SUPABASE_ANON}`,
-    'x-upsert': 'true',
-  };
-  const body = JSON.stringify(data);
-  let res = await fetch(url, { method: 'PUT', headers, body });
-  if (!res.ok) {
-    res = await fetch(url, { method: 'POST', headers, body });
-    if (!res.ok) throw new Error(await res.text());
-  }
+  const body = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const { error } = await supabase.storage.from(BUCKET).upload(fileName, body, {
+    contentType: 'application/json',
+    upsert: true,
+  });
+  if (error) throw error;
   return true;
 }
 
@@ -62,13 +58,11 @@ export const savePlansManifest = (plans) => cloudSave('plans.json', plans);
 // Elenca plan_NNNN.json esistenti nel bucket (fallback quando non c'è manifest)
 async function detectLegacyPlans() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${BUCKET}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
-      body: JSON.stringify({ prefix: '', limit: 1000, sortBy: { column: 'name', order: 'asc' } }),
+    const { data: files, error } = await supabase.storage.from(BUCKET).list('', {
+      limit: 1000,
+      sortBy: { column: 'name', order: 'asc' },
     });
-    if (!res.ok) return [];
-    const files = await res.json();
+    if (error) return [];
     return files
       .map(f => { const m = (f.name || '').match(/^plan_(\d{4})\.json$/); return m ? parseInt(m[1]) : null; })
       .filter(Boolean)

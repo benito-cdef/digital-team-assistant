@@ -1,70 +1,192 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { T, fontTitle, fontBody, fontMono } from '../tokens.js';
-import { isEditor } from '../config/editors.js';
-import { getOrCreateUser } from '../utils/db.js';
+import { supabase, ALLOWED_DOMAIN, isAllowedEmail } from '../supabase.js';
+import { getCurrentUserProfile } from '../utils/db.js';
 
-const ALLOWED_DOMAIN = 'goldengoose.com';
-const STORAGE_KEY    = 'dta:auth:email';
-
-function isAllowed(email) {
-  return email?.trim().toLowerCase().endsWith('@' + ALLOWED_DOMAIN);
+function authMessage(error) {
+  const message = error?.message || '';
+  const lower = message.toLowerCase();
+  if (lower.includes('not allowed') || lower.includes('not authorized') || lower.includes('whitelist')) {
+    return 'Questa email non è ancora nella whitelist dei tester. Chiedi l’accesso al Digital Team.';
+  }
+  if (lower.includes('expired') || lower.includes('invalid') || lower.includes('token')) {
+    return 'Codice non valido o scaduto. Richiedine uno nuovo.';
+  }
+  if (lower.includes('rate limit') || lower.includes('too many')) {
+    return 'Hai effettuato troppi tentativi. Attendi qualche minuto e riprova.';
+  }
+  return message || 'Non è stato possibile completare l’accesso. Riprova.';
 }
 
-function fallbackRole(email) {
-  return isEditor(email) ? 'editor' : 'user';
+function LoginShell({ children }) {
+  return (
+    <div style={{
+      minHeight: '100vh', background: T.bg,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+    }}>
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: T.ink }}>
+            <svg width="40" height="40" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+              <rect x="1.5" y="1.5" width="45" height="45" stroke="currentColor" strokeWidth="1.5" />
+              <rect x="24" y="24" width="21" height="21" fill="#C09850" />
+            </svg>
+          </div>
+          <h1 style={{ fontFamily: fontTitle, fontSize: 16, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.ink, margin: '0 0 6px' }}>
+            Digital Team Assistant
+          </h1>
+          <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted, margin: 0 }}>Golden Goose</p>
+        </div>
+
+        <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0, padding: 32 }}>
+          {children}
+        </div>
+
+        <p style={{ fontFamily: fontBody, fontSize: 11, color: T.muted, textAlign: 'center', marginTop: 20 }}>
+          Accesso riservato ai tester autorizzati · Golden Goose Digital Team
+        </p>
+      </div>
+    </div>
+  );
 }
+
+const inputStyle = {
+  width: '100%', padding: '10px 12px', marginBottom: 16,
+  border: `1px solid ${T.lineM}`, borderRadius: 0,
+  fontFamily: fontMono, fontSize: 14, color: T.ink,
+  outline: 'none', boxSizing: 'border-box', background: T.surface,
+};
 
 export default function AuthGate({ children }) {
-  const [email,   setEmail]   = useState('');
-  const [blocked, setBlocked] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [authed,  setAuthed]  = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved && isAllowed(saved) ? saved : null;
-  });
-  const [userRole, setUserRole] = useState('user');
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState('email');
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
-  // Risolve il ruolo dal DB quando c'è un'email autenticata (anche da reload)
+  async function refreshIdentity() {
+    setLoading(true);
+    try {
+      const { data, error: userError } = await supabase.auth.getUser();
+      if (userError && userError.name !== 'AuthSessionMissingError') throw userError;
+      if (!data.user) {
+        setProfile(null);
+        setError('');
+        return;
+      }
+
+      const currentProfile = await getCurrentUserProfile();
+      if (!currentProfile) {
+        await supabase.auth.signOut({ scope: 'local' });
+        throw new Error('Email non autorizzata o rimossa dalla whitelist.');
+      }
+      setEmail(data.user.email || currentProfile.email);
+      setProfile(currentProfile);
+      setError('');
+    } catch (identityError) {
+      setProfile(null);
+      setError(authMessage(identityError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    if (!authed) return;
-    let cancelled = false;
-    getOrCreateUser(authed)
-      .then(rec => { if (!cancelled) setUserRole(rec?.role || fallbackRole(authed)); })
-      .catch(() => { if (!cancelled) setUserRole(fallbackRole(authed)); });
-    return () => { cancelled = true; };
-  }, [authed]);
+    const initialCheck = window.setTimeout(() => void refreshIdentity(), 0);
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      // Evita chiamate Supabase asincrone direttamente dentro il callback Auth.
+      window.setTimeout(() => void refreshIdentity(), 0);
+    });
+    return () => {
+      window.clearTimeout(initialCheck);
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    const trimmed = email.trim().toLowerCase();
-    if (!isAllowed(trimmed)) {
-      setBlocked(true);
+  async function handleEmailSubmit(event) {
+    event.preventDefault();
+    const normalized = email.trim().toLowerCase();
+    setError('');
+    setNotice('');
+    if (!isAllowedEmail(normalized)) {
+      setError(`Usa il tuo indirizzo @${ALLOWED_DOMAIN}.`);
       return;
     }
-    setVerifying(true);
-    try {
-      const rec = await getOrCreateUser(trimmed);
-      setUserRole(rec?.role || fallbackRole(trimmed));
-    } catch {
-      setUserRole(fallbackRole(trimmed));
+
+    setSubmitting(true);
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: normalized,
+      options: { shouldCreateUser: true },
+    });
+    setSubmitting(false);
+
+    if (otpError) {
+      console.error('OTP request failed', {
+        name: otpError.name,
+        code: otpError.code,
+        status: otpError.status,
+        message: otpError.message,
+      });
+      setError(authMessage(otpError));
+      return;
     }
-    localStorage.setItem(STORAGE_KEY, trimmed);
-    setVerifying(false);
-    setAuthed(trimmed);
+    setEmail(normalized);
+    setOtp('');
+    setStep('otp');
+    setNotice('Ti abbiamo inviato un codice di 6 cifre. Controlla anche la cartella spam.');
   }
 
-  function handleSignOut() {
-    localStorage.removeItem(STORAGE_KEY);
-    setAuthed(null);
+  async function handleOtpSubmit(event) {
+    event.preventDefault();
+    setError('');
+    if (!/^\d{6}$/.test(otp)) {
+      setError('Inserisci il codice di 6 cifre ricevuto via email.');
+      return;
+    }
+
+    setSubmitting(true);
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email,
+      token: otp,
+      type: 'email',
+    });
+    if (verifyError) {
+      setSubmitting(false);
+      setError(authMessage(verifyError));
+      return;
+    }
+    await refreshIdentity();
+    setSubmitting(false);
+  }
+
+  async function handleSignOut() {
+    setSubmitting(true);
+    await supabase.auth.signOut();
+    setProfile(null);
     setEmail('');
-    setBlocked(false);
-    setUserRole('user');
+    setOtp('');
+    setStep('email');
+    setError('');
+    setNotice('');
+    setSubmitting(false);
   }
 
-  // ── Autenticato ───────────────────────────────────────────────────────────
-  if (authed) {
-    const editor = ['super_admin', 'editor'].includes(userRole);
-    const isSuperAdmin = userRole === 'super_admin';
+  if (loading) {
+    return (
+      <LoginShell>
+        <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted, margin: 0, textAlign: 'center' }}>
+          Verifica della sessione…
+        </p>
+      </LoginShell>
+    );
+  }
+
+  if (profile) {
+    const editor = ['super_admin', 'editor'].includes(profile.role);
+    const isSuperAdmin = profile.role === 'super_admin';
     return (
       <div>
         <div style={{
@@ -77,113 +199,80 @@ export default function AuthGate({ children }) {
               {isSuperAdmin ? 'Super Admin' : 'Editor'}
             </span>
           )}
-          <span style={{ fontFamily: fontMono, fontSize: 10, color: T.muted }}>{authed}</span>
-          <button onClick={handleSignOut} style={{
+          <span style={{ fontFamily: fontMono, fontSize: 10, color: T.muted }}>{profile.email}</span>
+          <button onClick={handleSignOut} disabled={submitting} style={{
             fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: T.muted, background: 'transparent', border: `1px solid rgba(255,255,255,0.2)`,
-            borderRadius: 0, padding: '3px 10px', cursor: 'pointer',
+            color: T.muted, background: 'transparent', border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: 0, padding: '3px 10px', cursor: submitting ? 'wait' : 'pointer',
           }}>Esci</button>
         </div>
         {typeof children === 'function'
-          ? children({ userEmail: authed, userRole, isEditor: editor, isSuperAdmin })
+          ? children({ userEmail: profile.email, userRole: profile.role, isEditor: editor, isSuperAdmin })
           : children}
       </div>
     );
   }
 
-  // ── Login screen ──────────────────────────────────────────────────────────
   return (
-    <div style={{
-      minHeight: '100vh', background: T.bg,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
-    }}>
-      <div style={{ width: '100%', maxWidth: 400 }}>
-
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: T.ink }}>
-            <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
-              <rect x="1.5" y="1.5" width="45" height="45" stroke="currentColor" strokeWidth="1.5" />
-              <rect x="24" y="24" width="21" height="21" fill="#C09850" />
-            </svg>
-          </div>
-          <h1 style={{ fontFamily: fontTitle, fontSize: 16, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.ink, margin: '0 0 6px' }}>
-            Digital Team Assistant
-          </h1>
-          <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted, margin: 0 }}>Golden Goose</p>
-        </div>
-
-        {/* Card */}
-        <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 0, padding: 32 }}>
-
-          {!blocked ? (
-            <>
-              <p style={{ fontFamily: fontBody, fontSize: 14, color: T.ink2, margin: '0 0 24px', lineHeight: 1.5 }}>
-                Inserisci la tua email <strong>@{ALLOWED_DOMAIN}</strong> per accedere.
-              </p>
-              <form onSubmit={handleSubmit}>
-                <label style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 6 }}>
-                  Email aziendale
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder={`nome@${ALLOWED_DOMAIN}`}
-                  required
-                  autoFocus
-                  style={{
-                    width: '100%', padding: '10px 12px', marginBottom: 16,
-                    border: `1px solid ${T.lineM}`, borderRadius: 0,
-                    fontFamily: fontMono, fontSize: 14, color: T.ink,
-                    outline: 'none', boxSizing: 'border-box', background: T.surface,
-                  }}
-                  onFocus={e => { e.target.style.borderColor = T.gold; e.target.style.outline = `2px solid rgba(192,152,80,0.25)`; e.target.style.outlineOffset = '0'; }}
-                  onBlur={e => { e.target.style.borderColor = T.lineM; e.target.style.outline = 'none'; }}
-                />
-                <button
-                  type="submit"
-                  disabled={!email || verifying}
-                  style={{
-                    width: '100%', padding: '11px 0',
-                    background: (!email || verifying) ? T.line : T.ink,
-                    color: (!email || verifying) ? T.lineS : '#fff',
-                    border: 'none', borderRadius: 0, cursor: verifying ? 'wait' : (!email ? 'not-allowed' : 'pointer'),
-                    fontFamily: fontTitle, fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase',
-                    fontWeight: 600, transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={e => { if (email && !verifying) { e.currentTarget.style.background = T.n700; e.currentTarget.style.outline = '3px solid rgba(192,152,80,0.3)'; e.currentTarget.style.outlineOffset = '0'; } }}
-                  onMouseLeave={e => { e.currentTarget.style.background = (!email || verifying) ? T.line : T.ink; e.currentTarget.style.outline = 'none'; }}
-                >
-                  {verifying ? 'Verifica accesso…' : 'Accedi →'}
-                </button>
-              </form>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 16 }}>🚫</div>
-              <h2 style={{ fontFamily: fontTitle, fontSize: 14, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.alert, margin: '0 0 12px' }}>
-                Accesso non autorizzato
-              </h2>
-              <p style={{ fontFamily: fontBody, fontSize: 13, color: T.ink2, lineHeight: 1.6, margin: '0 0 20px' }}>
-                Questo strumento è riservato al team Golden Goose.<br />
-                Usa la tua email <strong>@{ALLOWED_DOMAIN}</strong>.
-              </p>
-              <button onClick={() => { setBlocked(false); setEmail(''); }} style={{
-                fontFamily: fontTitle, fontSize: 11, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase',
-                color: T.ink, background: T.surface, border: `1px solid ${T.lineM}`,
-                borderRadius: 0, padding: '7px 16px', cursor: 'pointer',
-              }}>
-                ← Riprova
-              </button>
-            </div>
-          )}
-        </div>
-
-        <p style={{ fontFamily: fontBody, fontSize: 11, color: T.muted, textAlign: 'center', marginTop: 20 }}>
-          Accesso riservato · Golden Goose Digital Team
-        </p>
-      </div>
-    </div>
+    <LoginShell>
+      {step === 'email' ? (
+        <>
+          <p style={{ fontFamily: fontBody, fontSize: 14, color: T.ink2, margin: '0 0 24px', lineHeight: 1.5 }}>
+            Inserisci l’email aziendale presente nella whitelist. Riceverai un codice monouso.
+          </p>
+          <form onSubmit={handleEmailSubmit}>
+            <label htmlFor="dta-email" style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 6 }}>
+              Email aziendale
+            </label>
+            <input
+              id="dta-email" type="email" value={email}
+              onChange={event => setEmail(event.target.value)}
+              placeholder={`nome@${ALLOWED_DOMAIN}`} required autoFocus autoComplete="email"
+              style={inputStyle}
+            />
+            {error && <p role="alert" style={{ fontFamily: fontBody, fontSize: 12, color: T.alert, lineHeight: 1.5, margin: '0 0 14px' }}>{error}</p>}
+            <button type="submit" disabled={!email || submitting} style={{
+              width: '100%', padding: '11px 0',
+              background: (!email || submitting) ? T.line : T.ink,
+              color: (!email || submitting) ? T.lineS : '#fff', border: 'none', borderRadius: 0,
+              cursor: submitting ? 'wait' : (!email ? 'not-allowed' : 'pointer'),
+              fontFamily: fontTitle, fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 600,
+            }}>{submitting ? 'Invio codice…' : 'Invia codice →'}</button>
+          </form>
+        </>
+      ) : (
+        <>
+          <p style={{ fontFamily: fontBody, fontSize: 14, color: T.ink2, margin: '0 0 8px', lineHeight: 1.5 }}>
+            Inserisci il codice inviato a:
+          </p>
+          <p style={{ fontFamily: fontMono, fontSize: 12, color: T.ink, margin: '0 0 20px' }}>{email}</p>
+          {notice && <p style={{ fontFamily: fontBody, fontSize: 12, color: T.muted, lineHeight: 1.5, margin: '0 0 16px' }}>{notice}</p>}
+          <form onSubmit={handleOtpSubmit}>
+            <label htmlFor="dta-otp" style={{ fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 6 }}>
+              Codice di accesso
+            </label>
+            <input
+              id="dta-otp" type="text" inputMode="numeric" pattern="[0-9]{6}" maxLength={6}
+              value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000" required autoFocus autoComplete="one-time-code"
+              style={{ ...inputStyle, textAlign: 'center', fontSize: 22, letterSpacing: '0.3em' }}
+            />
+            {error && <p role="alert" style={{ fontFamily: fontBody, fontSize: 12, color: T.alert, lineHeight: 1.5, margin: '0 0 14px' }}>{error}</p>}
+            <button type="submit" disabled={otp.length !== 6 || submitting} style={{
+              width: '100%', padding: '11px 0',
+              background: (otp.length !== 6 || submitting) ? T.line : T.ink,
+              color: (otp.length !== 6 || submitting) ? T.lineS : '#fff', border: 'none', borderRadius: 0,
+              cursor: submitting ? 'wait' : (otp.length !== 6 ? 'not-allowed' : 'pointer'),
+              fontFamily: fontTitle, fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 600,
+            }}>{submitting ? 'Verifica…' : 'Accedi →'}</button>
+          </form>
+          <button onClick={() => { setStep('email'); setOtp(''); setError(''); setNotice(''); }} style={{
+            width: '100%', marginTop: 10, padding: '8px 0', background: 'transparent', color: T.muted,
+            border: 'none', cursor: 'pointer', fontFamily: fontTitle, fontSize: 10,
+            letterSpacing: '0.1em', textTransform: 'uppercase',
+          }}>← Cambia email o richiedi un nuovo codice</button>
+        </>
+      )}
+    </LoginShell>
   );
 }
