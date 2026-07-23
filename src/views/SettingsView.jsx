@@ -10,42 +10,61 @@ import UploadSlot from '../components/UploadSlot.jsx';
 function UsersSection({ userEmail }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [addEmail, setAddEmail] = useState('');
   const [addRole, setAddRole]   = useState('user');
   const [showAdd, setShowAdd]   = useState(false);
 
   function reload() {
     setLoading(true);
-    getAllUsers().then(setUsers).catch(() => {}).finally(() => setLoading(false));
+    setError('');
+    getAllUsers().then(setUsers).catch(e => setError(e.message)).finally(() => setLoading(false));
   }
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    const initialLoad = window.setTimeout(reload, 0);
+    return () => window.clearTimeout(initialLoad);
+  }, []);
 
   async function handleRoleChange(email, role) {
     if (role === 'super_admin') {
       if (!confirm(`Promuovere ${email} a Super Admin? Avrà accesso completo a tutte le impostazioni.`)) return;
     }
-    await updateUserRole(email, role);
-    reload();
+    try {
+      await updateUserRole(email, role);
+      reload();
+    } catch (e) { setError(e.message); }
   }
 
   async function handleAdd(e) {
     e.preventDefault();
     if (!addEmail.trim()) return;
-    await upsertUser(addEmail.trim().toLowerCase(), addRole, userEmail);
-    setAddEmail(''); setAddRole('user'); setShowAdd(false);
-    reload();
+    try {
+      await upsertUser(addEmail.trim().toLowerCase(), addRole, userEmail);
+      setAddEmail(''); setAddRole('user'); setShowAdd(false);
+      reload();
+    } catch (e) { setError(e.message); }
   }
 
   async function handleDelete(email) {
     if (!confirm(`Rimuovere ${email} dall'accesso allo strumento?`)) return;
-    await deleteUser(email);
-    reload();
+    try {
+      await deleteUser(email);
+      reload();
+    } catch (e) { setError(e.message); }
   }
 
   if (loading) return <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted }}>Caricamento utenti…</p>;
 
   return (
     <div>
+      <p style={{ fontFamily: fontBody, fontSize: 13, color: T.muted, margin: '0 0 14px', lineHeight: 1.6 }}>
+        Questa è la whitelist dei tester. Solo gli indirizzi presenti possono ricevere un codice OTP e accedere allo strumento.
+      </p>
+      {error && (
+        <p role="alert" style={{ fontFamily: fontBody, fontSize: 12, color: T.alert, margin: '0 0 14px' }}>
+          {error}
+        </p>
+      )}
       {/* Tabella utenti */}
       <div style={{ border: `1px solid ${T.line}`, borderRadius: 0, overflow: 'hidden', marginBottom: 12 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -110,7 +129,7 @@ function UsersSection({ userEmail }) {
           fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
           color: T.ink, background: T.surface, border: `1px solid ${T.line}`,
           borderRadius: 0, padding: '7px 16px', cursor: 'pointer',
-        }}>+ Aggiungi utente</button>
+        }}>+ Aggiungi tester</button>
       ) : (
         <form onSubmit={handleAdd} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <input
@@ -137,7 +156,7 @@ function UsersSection({ userEmail }) {
             fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
             background: T.ink, color: '#fff', border: 'none', borderRadius: 0,
             padding: '8px 16px', cursor: 'pointer', fontWeight: 600,
-          }}>Salva</button>
+          }}>Aggiungi alla whitelist</button>
           <button type="button" onClick={() => setShowAdd(false)} style={{
             fontFamily: fontTitle, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
             color: T.muted, background: 'transparent', border: `1px solid ${T.line}`,
@@ -150,7 +169,7 @@ function UsersSection({ userEmail }) {
 }
 
 // ── Sezione Calendari (upload) ─────────────────────────────────────────────
-function CalendariSection({ calendars, onCalendarChange, onPlanReady, plan }) {
+function CalendariSection({ calendars, onCalendarChange, onPlanReady }) {
   function save(key, filename, activities) {
     saveCalendar(key, { filename, uploadedAt: new Date().toISOString(), activities, rowCount: activities.length });
     onCalendarChange();
@@ -199,7 +218,7 @@ function CondividiSection() {
 
   const waMsg = encodeURIComponent(`Ti condivido l'accesso al Digital Team Assistant di Golden Goose: ${appUrl}`);
   const mailSubject = encodeURIComponent('Digital Team Assistant – Golden Goose');
-  const mailBody = encodeURIComponent(`Ciao,\n\nti condivido il link al Digital Team Assistant del team digital di Golden Goose:\n\n${appUrl}\n\nAccedi con la tua email @goldengoose.com.`);
+  const mailBody = encodeURIComponent(`Ciao,\n\nti condivido il link al Digital Team Assistant del team digital di Golden Goose:\n\n${appUrl}\n\nSe sei nella whitelist dei tester, inserisci la tua email aziendale e usa il codice OTP che riceverai.`);
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(appUrl)}`;
 
   return (
@@ -239,8 +258,8 @@ function CondividiSection() {
         <img src={qrSrc} alt="QR Code" width={160} height={160}
           style={{ border: `1px solid ${T.line}`, borderRadius: 0, display: 'block', marginBottom: 8 }} />
         <a href={qrSrc} download="DTA_QR.png" style={{
-          fontFamily: fontTitle, fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
-          color: T.muted, textDecoration: 'underline', fontSize: 11,
+          fontFamily: fontTitle, fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
+          color: T.muted, textDecoration: 'underline',
         }}>Scarica QR</a>
       </div>
     </div>
@@ -495,7 +514,7 @@ function Section({ title, children }) {
 // ── View principale ───────────────────────────────────────────────────────
 export default function SettingsView({
   userEmail, isEditor, isSuperAdmin,
-  calendars, onCalendarChange, onPlanReady, plan,
+  calendars, onCalendarChange, onPlanReady,
   availablePlans, onCreatePlan, onRenamePlan,
 }) {
   const [showNewModal, setShowNewModal] = useState(false);
@@ -521,7 +540,6 @@ export default function SettingsView({
               calendars={calendars}
               onCalendarChange={onCalendarChange}
               onPlanReady={onPlanReady}
-              plan={plan}
             />
           </Section>
 
