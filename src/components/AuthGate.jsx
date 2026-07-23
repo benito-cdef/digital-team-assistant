@@ -124,6 +124,12 @@ export default function AuthGate({ children }) {
     setSubmitting(false);
 
     if (otpError) {
+      console.error('OTP request failed', {
+        name: otpError.name,
+        code: otpError.code,
+        status: otpError.status,
+        message: otpError.message,
+      });
       setError(authMessage(otpError));
       return;
     }
