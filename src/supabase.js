@@ -14,12 +14,8 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 });
 
 export const ALLOWED_DOMAIN = 'goldengoose.com';
-export const PILOT_EMAIL_EXCEPTIONS = new Set([
-  'b.condemi@gmail.com',
-]);
 
 export function isAllowedEmail(email) {
   const normalized = email?.trim().toLowerCase();
-  return normalized?.endsWith('@' + ALLOWED_DOMAIN)
-    || PILOT_EMAIL_EXCEPTIONS.has(normalized);
+  return normalized?.endsWith('@' + ALLOWED_DOMAIN);
 }
