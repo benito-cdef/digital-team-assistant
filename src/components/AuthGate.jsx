@@ -71,9 +71,10 @@ export default function AuthGate({ children }) {
     setLoading(true);
     try {
       const { data, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      if (userError && userError.name !== 'AuthSessionMissingError') throw userError;
       if (!data.user) {
         setProfile(null);
+        setError('');
         return;
       }
 
