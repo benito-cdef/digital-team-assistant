@@ -182,13 +182,19 @@ function detectFormat(rows) {
 // ── Main export ────────────────────────────────────────────────────────────
 
 export function parseFullCalendar(wb, filename) {
-  const sheetPriority = ['WEEKLY PLAN 2026', 'WEEKLY PLAN 2025', 'WEEKLY PLAN 2024', 'WEEKLY PLAN'];
-  const sheetName = sheetPriority.find(n => wb.SheetNames.includes(n))
-    || wb.SheetNames.find(n => /weekly.?plan/i.test(n));
-  if (!sheetName) return null;
+  const sheetPriority = ['WEEKLY PLAN 2026', 'WEEKLY PLAN 2025', 'WEEKLY PLAN 2024', 'WEEKLY PLAN 2027', 'WEEKLY PLAN'];
+  let sheetName = sheetPriority.find(n => wb.SheetNames.includes(n))
+    || wb.SheetNames.find(n => /weekly.?plan/i.test(n))
+    || wb.SheetNames.find(n => /piano.{0,10}(sett|week)/i.test(n))
+    || wb.SheetNames.find(n => /master.{0,10}cal/i.test(n));
+
+  if (!sheetName) {
+    console.warn('[parseFullCalendar] nessun foglio "WEEKLY PLAN" trovato. Fogli disponibili:', wb.SheetNames);
+    return null;
+  }
 
   const ws   = wb.Sheets[sheetName];
-  fillMerges(ws);   // propaga valori celle unite → attività multi-settimana
+  fillMerges(ws);
   const rows = XLSX.utils.sheet_to_json(ws, { defval: '', header: 1 });
 
   // Detect format: prefer sheet name hint, fallback to content
@@ -205,8 +211,15 @@ export function parseFullCalendar(wb, filename) {
   const year = hintYear ? parseInt(hintYear) : new Date().getFullYear();
 
   const weekRow    = rows[R.WEEK];
-  const weekColIdx = weekRow.findIndex(c => /^(week|settimana)$/i.test(String(c).trim()));
-  if (weekColIdx === -1) return null;
+  // Cerca la label "WEEK" / "W" / "SETTIMANA" / "WEEK NO" ecc.
+  const weekColIdx = weekRow
+    ? weekRow.findIndex(c => /^(week|w|settimana|semana|woche)(\s*(no|num|number|#))?\.?$/i.test(String(c).trim()))
+    : -1;
+
+  if (weekColIdx === -1) {
+    console.warn('[parseFullCalendar] riga WEEK non trovata (row', R.WEEK, '). Valori riga:', weekRow?.slice(0, 10));
+    return null;
+  }
   const startCol = weekColIdx + 1;
 
   const weeks = [];
@@ -288,5 +301,6 @@ export function parseFullCalendar(wb, filename) {
     });
   }
 
+  console.log(`[parseFullCalendar] foglio="${sheetName}" formato=${format} anno=${year} settimane=${weeks.length}`);
   return { weeks, sheetName, year, format, filename };
 }
