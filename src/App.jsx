@@ -149,12 +149,28 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
 
   // ── Salva piano da upload ─────────────────────────────────────────────────
   async function handlePlanReady(p) {
-    if (!selectedPlan) return;
+    // Se non c'è un piano selezionato nel manifest, crea automaticamente un record
+    let target = selectedPlan;
+    if (!target) {
+      const year = p.isoYear ?? p.year ?? getCurrentISOYear();
+      const name = p.name || String(year);
+      try {
+        const record = await handleCreatePlan({ name, isoYear: year, description: '', weeks: p.weeks });
+        target = record;
+      } catch (e) {
+        // Salva almeno in locale con un id temporaneo
+        const tmpId = `plan_${Date.now()}`;
+        savePlanLocal(tmpId, p);
+        setPlan(p);
+        console.error('Piano non salvato su cloud:', e);
+        return;
+      }
+    }
     setPlan(p);
-    savePlanLocal(selectedPlan.id, p);
+    savePlanLocal(target.id, p);
     if (isEditor) {
       setCloudSaving(true);
-      try { await savePlanFile(selectedPlan.filename, p); } catch (e) { console.error(e); }
+      try { await savePlanFile(target.filename, p); } catch (e) { console.error(e); }
       setCloudSaving(false);
     }
   }

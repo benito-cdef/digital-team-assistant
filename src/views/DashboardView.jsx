@@ -176,7 +176,7 @@ function Block1({ currentWeek, weekNum, planYear, onNav, loading }) {
 }
 
 // ── Block 2 — Performance snapshot ───────────────────────────────────────────
-function Block2({ currentWeek, previousWeeks, loading, demoMode }) {
+function Block2({ currentWeek, previousWeeks, loading }) {
   if (loading) return <Skeleton height={140} />;
 
   const p = currentWeek?.performance;
@@ -190,9 +190,10 @@ function Block2({ currentWeek, previousWeeks, loading, demoMode }) {
     </div>
   );
 
-  const actual  = demoMode ? fakeEuro(p.ecomActual, 1)  : p.ecomActual;
-  const budget  = demoMode ? fakeEuro(p.ecomBudget, 2)  : p.ecomBudget;
-  const delta   = demoMode ? fakeDelta(3)                : p.ecomDeltaBdg;
+  // I valori economici reali non vengono mai mostrati — sempre fake
+  const actual = fakeEuro(p.ecomActual, 1);
+  const budget = fakeEuro(p.ecomBudget, 2);
+  const delta  = fakeDelta(3);
 
   const kpis = [
     { label:'Actual',      value:fmtEuro(actual), color:T.ink },
@@ -203,11 +204,6 @@ function Block2({ currentWeek, previousWeeks, loading, demoMode }) {
 
   return (
     <div style={{ background:T.surface, border:`1px solid ${T.line}`, borderRadius:0, overflow:'hidden' }}>
-      {demoMode && (
-        <div style={{ padding:'5px 16px', background:T.goldBg, borderBottom:`1px solid ${T.gold}`, fontFamily:fontTitle, fontSize:9, letterSpacing:'0.14em', textTransform:'uppercase', color:T.goldDark }}>
-          Modalità Demo — dati finanziari oscurati
-        </div>
-      )}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)' }}>
         {kpis.map(({ label, value, color }, i) => (
           <div key={label} style={{ padding:'20px 20px 16px', borderRight: i < 2 ? `1px solid ${T.line}` : 'none' }}>
@@ -220,7 +216,7 @@ function Block2({ currentWeek, previousWeeks, loading, demoMode }) {
         <div style={{ borderTop:`1px solid ${T.line}`, padding:'10px 20px', display:'flex', gap:24, alignItems:'center' }}>
           <div style={{ fontFamily:fontTitle, fontSize:9, letterSpacing:'0.16em', textTransform:'uppercase', color:T.muted }}>Trend</div>
           {trendWeeks.map((w, i) => {
-            const d = demoMode ? fakeDelta(w.week + 10 + i) : w.performance.ecomDeltaBdg;
+            const d = fakeDelta(w.week + 10 + i);
             return (
               <div key={w.week} style={{ display:'flex', flexDirection:'column', gap:2 }}>
                 <div style={{ fontFamily:fontMono, fontSize:9, color:T.muted }}>W{w.week}</div>
