@@ -80,26 +80,45 @@ async function detectLegacyPlans() {
   }
 }
 
+const MANIFEST_LS_KEY = 'dta:plans:manifest';
+
+function saveManifestLocal(plans) {
+  try { localStorage.setItem(MANIFEST_LS_KEY, JSON.stringify(plans)); } catch { /* quota */ }
+}
+function loadManifestLocal() {
+  try { const r = localStorage.getItem(MANIFEST_LS_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+}
+
 // Carica manifest oppure lo inizializza dai file esistenti
 let manifestCache = null;
 export async function getOrInitPlansManifest() {
   if (manifestCache) return manifestCache;
-  const existing = await loadPlansManifest();
-  if (existing && Array.isArray(existing) && existing.length > 0) {
-    manifestCache = existing;
-    return existing;
-  }
-  // Crea manifest dai file legacy
-  const legacy = await detectLegacyPlans();
-  if (legacy.length > 0) {
-    await savePlansManifest(legacy);
-    manifestCache = legacy;
-    return legacy;
+  try {
+    const existing = await loadPlansManifest();
+    if (existing && Array.isArray(existing) && existing.length > 0) {
+      manifestCache = existing;
+      saveManifestLocal(existing);
+      return existing;
+    }
+    // Crea manifest dai file legacy
+    const legacy = await detectLegacyPlans();
+    if (legacy.length > 0) {
+      await savePlansManifest(legacy);
+      manifestCache = legacy;
+      saveManifestLocal(legacy);
+      return legacy;
+    }
+  } catch { /* Storage non raggiungibile */ }
+  // Fallback: usa manifest salvato localmente
+  const local = loadManifestLocal();
+  if (local && Array.isArray(local) && local.length > 0) {
+    manifestCache = local;
+    return local;
   }
   return [];
 }
 
-export function clearManifestCache() { manifestCache = null; }
+export function clearManifestCache() { manifestCache = null; saveManifestLocal([]); }
 
 // ── Operazioni sui piani ──────────────────────────────────────────────────
 
@@ -120,12 +139,13 @@ export async function createNewPlan({ name, isoYear, description, weeks }) {
     weeks, createdAt: new Date().toISOString(),
   };
 
-  await cloudSave(filename, planData);
+  try { await cloudSave(filename, planData); } catch { /* Storage non raggiungibile, ok — salvato localmente dall'App */ }
 
   const record = { id: finalId, name, filename, isoYear, description: description || '', createdAt: planData.createdAt };
   const updated = manifest.filter(p => p.id !== finalId).concat(record).sort((a, b) => (a.isoYear || 0) - (b.isoYear || 0));
-  await savePlansManifest(updated);
+  try { await savePlansManifest(updated); } catch { /* Storage non raggiungibile */ }
   manifestCache = updated;
+  saveManifestLocal(updated);
 
   return record;
 }
@@ -134,8 +154,9 @@ export async function createNewPlan({ name, isoYear, description, weeks }) {
 export async function updatePlanManifestEntry(id, changes) {
   const manifest = await getOrInitPlansManifest();
   const updated = manifest.map(p => p.id === id ? { ...p, ...changes } : p);
-  await savePlansManifest(updated);
+  try { await savePlansManifest(updated); } catch { /* Storage non raggiungibile */ }
   manifestCache = updated;
+  saveManifestLocal(updated);
 }
 
 // ── Migrazione legacy plan.json → plan_2026.json (one-time) ──────────────

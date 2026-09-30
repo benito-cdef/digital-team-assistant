@@ -76,7 +76,7 @@ function calendarsFromCloud(data) {
 
 export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
   const [route, setRoute]           = useState(parseHash());
-  const [calendars, setCalendars]   = useState({});
+  const [calendars, setCalendars]   = useState(() => loadAll());
   const [plan, setPlan]             = useState(null);
   const [comparisonPlan, setComparisonPlan] = useState(null); // piano anno precedente per confronto
   const [availablePlans, setAvailablePlans] = useState([]);   // manifest
@@ -96,16 +96,14 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
 
   // ── Carica piano + calendari al cambio piano ──────────────────────────────
   useEffect(() => {
-    if (!selectedPlan) return;
+    if (!selectedPlan) { setCloudLoading(false); return; }
     setCloudLoading(true);
     setComparisonPlan(null);
-    // Svuota i calendari subito così la UI non mostra dati del piano precedente
-    setCalendars({});
 
     const local = loadPlanLocal(selectedPlan.id);
     if (local) setPlan(local);
 
-    // Carica piano
+    // Carica piano da cloud, ma non sovrascrive se cloud fallisce
     loadPlanFile(selectedPlan.filename).then(cloudPlan => {
       if (cloudPlan) {
         setPlan(cloudPlan);
@@ -116,10 +114,11 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
       setCloudLoading(false);
     }).catch(() => setCloudLoading(false));
 
-    // Carica calendari specifici per l'anno del piano
+    // Carica calendari da cloud; fallback a localStorage (già in stato iniziale)
     loadCalendarsFromCloud(selectedPlan.isoYear).then(cloudCals => {
       if (cloudCals) setCalendars(calendarsFromCloud(cloudCals));
-    }).catch(console.error);
+      // Se cloud fallisce, i calendari in localStorage rimangono invariati
+    }).catch(() => {});
 
     // Piano confronto: cerca piano con isoYear = selectedPlan.isoYear - 1
     if (selectedPlan.isoYear) {
@@ -154,17 +153,10 @@ export default function App({ userEmail, userRole, isEditor, isSuperAdmin }) {
     if (!target) {
       const year = p.isoYear ?? p.year ?? getCurrentISOYear();
       const name = p.name || String(year);
-      try {
-        const record = await handleCreatePlan({ name, isoYear: year, description: '', weeks: p.weeks });
-        target = record;
-      } catch (e) {
-        // Salva almeno in locale con un id temporaneo
-        const tmpId = `plan_${Date.now()}`;
-        savePlanLocal(tmpId, p);
-        setPlan(p);
-        console.error('Piano non salvato su cloud:', e);
-        return;
-      }
+      // createNewPlan ora non lancia mai (gestisce errori Storage internamente)
+      const record = await handleCreatePlan({ name, isoYear: year, description: '', weeks: p.weeks });
+      target = record;
+      setSelectedPlan(record);
     }
     setPlan(p);
     savePlanLocal(target.id, p);
